@@ -255,9 +255,8 @@ def is_nmap_available() -> bool:
         return False
 
 
-def _detect_nmap_version() -> str:
-    """Detect and return Nmap version string."""
-    _ensure_nmap_on_path()
+def _detect_nmap_version() -> Optional[str]:
+    """Detect and return Nmap version string, or None if detection fails."""
     try:
         res = subprocess.run(["nmap", "--version"], capture_output=True, text=True, timeout=5.0)
         out = getattr(res, 'stdout', None)
@@ -269,19 +268,25 @@ def _detect_nmap_version() -> str:
                 return first_line[:50]
     except Exception:
         pass
-    return "Nmap (installed)"
+    return None
 
 
-_cached_nmap_version: Optional[str] = _detect_nmap_version()
+_cached_nmap_version: Optional[str] = None
 
 
 def get_nmap_version() -> Optional[str]:
-    """Retrieve Nmap version once and cache it."""
+    """Retrieve Nmap version lazily on first use, after _ensure_nmap_on_path().
+    Caches only a successful result (retries if it was None).
+    """
     global _cached_nmap_version
     if _cached_nmap_version is not None:
         return _cached_nmap_version
-    _cached_nmap_version = _detect_nmap_version()
-    return _cached_nmap_version
+
+    _ensure_nmap_on_path()
+    detected = _detect_nmap_version()
+    if detected is not None:
+        _cached_nmap_version = detected
+    return detected
 
 
 def reset_cached_nmap_version() -> None:
@@ -534,11 +539,13 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                 clean_stderr = str(stderr)
 
             # Sanitize nmap_version
-            clean_ver = "Nmap"
-            if isinstance(nmap_version, str):
-                clean_ver = nmap_version[:50]
+            clean_ver = "unknown"
+            if isinstance(nmap_version, str) and nmap_version.strip() and nmap_version.strip().lower() != "none":
+                clean_ver = nmap_version.strip()[:50]
             elif nmap_version is not None and not hasattr(nmap_version, '_mock_name'):
-                clean_ver = str(nmap_version)[:50]
+                v_str = str(nmap_version).strip()
+                if v_str and v_str.lower() != "none":
+                    clean_ver = v_str[:50]
 
             evidence = NetworkScanEvidence(
                 network_scan_id=scan_id,
@@ -673,7 +680,7 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
 
         # Ensure Nmap directory is in PATH before executing subprocess
         _ensure_nmap_on_path()
-        nmap_ver = get_nmap_version()
+        nmap_ver = get_nmap_version() or "unknown"
 
         # ==========================================
         # PHASE 1 (discovery, authoritative)

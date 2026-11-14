@@ -122,10 +122,11 @@ def test_nmap_available_detection(mock_run, mock_which):
     assert is_nmap_available() is False
 
 
+@patch("app.services.network_scan_service.get_nmap_version", return_value="Nmap version 7.80")
 @patch("app.routes.network_scanner.routes.is_nmap_available", return_value=True)
 @patch("app.services.network_scan_service.is_nmap_available", return_value=True)
 @patch("subprocess.run")
-def test_successful_nmap_scan_and_xml_parsing(mock_run, mock_service_avail, mock_route_avail, app, db, test_users):
+def test_successful_nmap_scan_and_xml_parsing(mock_run, mock_service_avail, mock_route_avail, mock_nmap_ver, app, db, test_users):
     """Test safe subprocess construction, XML parsing, and database persistence."""
     client = app.test_client()
     
@@ -174,10 +175,11 @@ def test_successful_nmap_scan_and_xml_parsing(mock_run, mock_service_avail, mock
     assert called_kwargs.get("shell") is not True
 
 
+@patch("app.services.network_scan_service.get_nmap_version", return_value="Nmap version 7.80")
 @patch("app.routes.network_scanner.routes.is_nmap_available", return_value=True)
 @patch("app.services.network_scan_service.is_nmap_available", return_value=True)
 @patch("subprocess.run")
-def test_nmap_service_detection_profile(mock_run, mock_service_avail, mock_route_avail, app, db, test_users):
+def test_nmap_service_detection_profile(mock_run, mock_service_avail, mock_route_avail, mock_nmap_ver, app, db, test_users):
     """Test deep service detection profile port configuration and XML parsing."""
     client = app.test_client()
     
@@ -1003,10 +1005,11 @@ def test_review_pass_item2_and_4_phase2_timeouts_and_clean_service_name(app, db,
         assert p.full_version_text == VERSION_TEXT_TABLE_ASSUMED
 
 
+@patch("app.services.network_scan_service.get_nmap_version", return_value="Nmap version 7.80")
 @patch("app.routes.network_scanner.routes.is_nmap_available", return_value=True)
 @patch("app.services.network_scan_service.is_nmap_available", return_value=True)
 @patch("subprocess.run")
-def test_guard_service_detection_zero_open_ports_skips_phase2(mock_run, mock_service_avail, mock_route_avail, app, db, test_users):
+def test_guard_service_detection_zero_open_ports_skips_phase2(mock_run, mock_service_avail, mock_route_avail, mock_nmap_ver, app, db, test_users):
     """Item 2: Service Detection profile, host up, ports present, zero open ->
     status 'completed', no crash (max_workers never 0), and NO phase-2 subprocess call."""
     SYNTHETIC_ALL_CLOSED_XML = """<?xml version="1.0" encoding="UTF-8"?>

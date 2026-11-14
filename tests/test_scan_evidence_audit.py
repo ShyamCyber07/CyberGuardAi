@@ -187,23 +187,89 @@ def test_truncate_evidence_text_limits_to_1mb():
     assert truncated == "A" * one_mb
 
 
-def test_cached_nmap_version():
-    """Verify Nmap version is retrieved and cached."""
-    reset_cached_nmap_version()
-    with patch("subprocess.run") as mock_run:
+def test_nmap_version_lazy_detection_success_and_cache():
+    """Item 1: Verify get_nmap_version detects lazily after _ensure_nmap_on_path, caches only success."""
+    import app.services.network_scan_service as nss
+    nss.reset_cached_nmap_version()
+    assert nss._cached_nmap_version is None
+
+    with patch("app.services.network_scan_service._ensure_nmap_on_path") as mock_ensure, \
+         patch("subprocess.run") as mock_run:
         mock_resp = MagicMock()
         mock_resp.returncode = 0
         mock_resp.stdout = "Nmap version 7.95 ( https://nmap.org )\nPlatform: x86_64\n"
         mock_run.return_value = mock_resp
 
-        ver1 = get_nmap_version()
-        assert "7.95" in ver1
+        ver1 = nss.get_nmap_version()
+        assert ver1 == "Nmap version 7.95 ( https://nmap.org )"
+        assert nss._cached_nmap_version == ver1
+        mock_ensure.assert_called_once()
         assert mock_run.call_count == 1
 
-        # Second call must hit cache without running subprocess again
-        ver2 = get_nmap_version()
+        # Second call hits cache without calling subprocess.run again
+        ver2 = nss.get_nmap_version()
         assert ver2 == ver1
         assert mock_run.call_count == 1
+        assert mock_ensure.call_count == 1
+
+
+def test_nmap_version_detection_failure_no_cache_retry_and_unknown_in_evidence(app, db, test_users):
+    """Item 1: Verify get_nmap_version retries on failure (no None caching) and stores 'unknown' in evidence."""
+    import app.services.network_scan_service as nss
+    nss.reset_cached_nmap_version()
+    assert nss._cached_nmap_version is None
+
+    # Step 1: First call fails (e.g. non-zero returncode or OSError)
+    with patch("subprocess.run") as mock_run:
+        mock_resp = MagicMock()
+        mock_resp.returncode = 1
+        mock_resp.stdout = "error"
+        mock_run.return_value = mock_resp
+
+        ver_failed = nss.get_nmap_version()
+        assert ver_failed is None
+        # Must NOT cache None
+        assert nss._cached_nmap_version is None
+        assert mock_run.call_count == 1
+
+    # Step 2: Next call retries because cache was None, and succeeds
+    with patch("subprocess.run") as mock_run:
+        mock_resp = MagicMock()
+        mock_resp.returncode = 0
+        mock_resp.stdout = "Nmap version 7.991 ( https://nmap.org )\n"
+        mock_run.return_value = mock_resp
+
+        ver_retry = nss.get_nmap_version()
+        assert ver_retry == "Nmap version 7.991 ( https://nmap.org )"
+        assert nss._cached_nmap_version == ver_retry
+        assert mock_run.call_count == 1
+
+    # Step 3: Verify "unknown" is stored in evidence if detection fails during scan
+    nss.reset_cached_nmap_version()
+    scanner = nss.NmapNetworkScannerService(repository=MagicMock(), risk_calculator=MagicMock())
+    scan = NetworkScan(
+        ip_address='192.0.2.1',
+        scan_profile='Quick Scan',
+        risk_level='Low',
+        user_id=test_users['user'].id,
+        status='running'
+    )
+    db.session.add(scan)
+    db.session.commit()
+
+    scanner._record_evidence(
+        scan_id=scan.id,
+        phase='discovery',
+        command=['nmap', '-Pn'],
+        exit_code=0,
+        duration_seconds=0.5,
+        raw_xml='<nmaprun></nmaprun>',
+        stderr='',
+        nmap_version=None
+    )
+    ev = NetworkScanEvidence.query.filter_by(network_scan_id=scan.id).first()
+    assert ev is not None
+    assert ev.nmap_version == "unknown"
 
 
 @patch("app.services.network_scan_service.is_nmap_available", return_value=True)
@@ -637,3 +703,72 @@ def test_bola_403_for_non_owner_on_results_and_evidence(client, test_users, db):
     # Attempt to view User's network scan
     res_net = client.get(f'/scanner/network/results/{net_scan.uuid}')
     assert res_net.status_code == 403
+
+
+def test_xss_payload_in_response_header_and_fake_nmap_banner_html_escaped(client, test_users, db):
+    """Item 3: Verify XSS payload in response header and in fake Nmap banner are HTML-escaped on both results pages."""
+    with client.session_transaction() as sess:
+        sess['_user_id'] = str(test_users['user'].id)
+        sess['_fresh'] = True
+
+    xss_payload = "<script>alert(1)</script>"
+
+    # 1. Website scan with XSS payload in response header
+    web_evidence = {
+        "final_url": "https://example.com",
+        "status_code": 200,
+        "redirect_chain": [],
+        "response_headers": {
+            "Server": f"Apache/2.4 {xss_payload}",
+            "X-Custom-Header": xss_payload
+        },
+        "audit_ssl": {"valid": True, "tls_version": "TLSv1.3", "tls_verified": True}
+    }
+    web_scan = Scan(
+        target_type='website',
+        target_destination='https://example.com',
+        user_id=test_users['user'].id,
+        status='completed',
+        risk_score=85,
+        evidence_json=json.dumps(web_evidence)
+    )
+    db.session.add(web_scan)
+    db.session.commit()
+
+    res_web = client.get(f'/scanner/results/{web_scan.uuid}')
+    assert res_web.status_code == 200
+    # Must NOT contain raw unescaped script tags
+    assert b"<script>alert(1)</script>" not in res_web.data
+    # Must contain HTML-escaped script tags
+    assert b"&lt;script&gt;alert(1)&lt;/script&gt;" in res_web.data
+
+    # 2. Network scan with XSS payload in fake Nmap banner (service_version)
+    net_scan = NetworkScan(
+        ip_address='8.8.8.8',
+        scan_profile='Service Detection',
+        user_id=test_users['user'].id,
+        status='completed',
+        risk_level='Medium'
+    )
+    db.session.add(net_scan)
+    db.session.commit()
+
+    net_result = NetworkScanResult(
+        network_scan_id=net_scan.id,
+        port=8080,
+        protocol='tcp',
+        state='open',
+        service_name='http-proxy',
+        service_version=xss_payload,
+        severity='Medium',
+        remediation='Verify proxy configurations'
+    )
+    db.session.add(net_result)
+    db.session.commit()
+
+    res_net = client.get(f'/scanner/network/results/{net_scan.uuid}')
+    assert res_net.status_code == 200
+    # Must NOT contain raw unescaped script tag
+    assert b"<script>alert(1)</script>" not in res_net.data
+    # Must contain HTML-escaped script tag
+    assert b"&lt;script&gt;alert(1)&lt;/script&gt;" in res_net.data
