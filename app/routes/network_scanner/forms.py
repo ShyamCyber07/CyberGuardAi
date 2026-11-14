@@ -20,10 +20,27 @@ class NetworkScanForm(FlaskForm):
         ('Service Detection', 'Comprehensive (Deep Port & Version Audit)')
     ], default='Quick Scan', validators=[DataRequired()])
     scanner_mode = SelectField('Scanner Mode', choices=[
-        ('REAL_NMAP', 'Real Nmap Scanner'),
-        ('MOCK', 'Simulated / Demonstration Mode')
+        ('REAL_NMAP', 'Real Nmap Scanner')
     ], default='REAL_NMAP', validators=[DataRequired()])
     submit = SubmitField('Initiate Network Assessment')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from flask import current_app
+        demo_mode = False
+        try:
+            demo_mode = current_app.config.get('DEMO_MODE', False)
+        except Exception:
+            pass
+        if demo_mode:
+            self.scanner_mode.choices = [
+                ('REAL_NMAP', 'Real Nmap Scanner'),
+                ('MOCK', 'Simulated / Demonstration Mode')
+            ]
+        else:
+            self.scanner_mode.choices = [
+                ('REAL_NMAP', 'Real Nmap Scanner')
+            ]
 
     def validate_ip_address(self, field):
         """Ensure input is either a valid IP address or compliant DNS hostname."""

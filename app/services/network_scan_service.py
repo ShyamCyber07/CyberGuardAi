@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+import re
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -265,6 +266,11 @@ def _detect_nmap_version() -> Optional[str]:
                 out = out.decode('utf-8', errors='replace')
             first_line = out.strip().splitlines()[0].strip() if out.strip() else ""
             if "nmap" in first_line.lower() and not first_line.startswith("<"):
+                m = re.search(r'\bversion\s+([0-9]+(?:\.[0-9]+)+[a-zA-Z0-9\.\-]*)', first_line, re.IGNORECASE)
+                if not m:
+                    m = re.search(r'([0-9]+(?:\.[0-9]+)+[a-zA-Z0-9\.\-]*)', first_line)
+                if m:
+                    return m.group(1).strip()
                 return first_line[:50]
     except Exception:
         pass
@@ -599,6 +605,9 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
             }
 
             ai_data = AIAnalysisService.analyze_scan(scan_results_payload, fallback_on_quota=True, user_id=scan.user_id)
+            # Force authoritative network scanner metrics
+            ai_data["overall_risk"] = scan.risk_level
+            ai_data["security_score"] = net_score
             model_used = ai_data.get("_model_used", AIAnalysisService.DEFAULT_MODEL)
 
             db_response = AIResponse(
@@ -663,7 +672,7 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
 
         # 4. Check if Nmap is installed (Do this AFTER target validation!)
         if not is_nmap_available():
-            raise NmapUnavailableError("Nmap is not installed or available on this system. Please use Simulated Mode.")
+            raise NmapUnavailableError("Nmap is not installed or available on this system. Nmap not found, install it from nmap.org")
 
         # Instantiate NetworkScan metadata model
         started_at = datetime.now(timezone.utc)

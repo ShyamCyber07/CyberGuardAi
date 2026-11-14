@@ -72,13 +72,18 @@
                     <span class="text-cyan font-monospace fs-8 text-uppercase tracking-wider fw-bold">// NETWORK TELEMETRY</span>
                 </div>
                 <h1 class="fw-extrabold text-white mt-1 mb-1">Network Audit Results</h1>
-                <p class="text-white-50 mb-0 fs-7">Target Host Endpoint: <code class="text-cyan font-monospace fw-bold fs-6">{{ scan.ip_address }}</code></p>
+                <p class="text-white-50 mb-0 fs-7">
+                    Target Host Endpoint: <code class="text-cyan font-monospace fw-bold fs-6">{{ scan.ip_address }}</code>
+                    {% if scan.scanner_mode == 'MOCK' %}
+                        <span class="badge bg-warning text-dark font-monospace text-uppercase fs-9 ms-2">SIMULATED</span>
+                    {% endif %}
+                </p>
             </div>
             <div class="col-md-5 text-md-end d-flex justify-content-md-end gap-2 align-items-center flex-wrap">
                 <div class="p-2.5 rounded-3 text-start" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
                     <span class="d-block text-muted fs-9 font-monospace text-uppercase">OVERALL RISK:</span>
                     {% set badge_color = 'danger' if scan.risk_level == 'High' else 'warning' if scan.risk_level == 'Medium' else 'secondary' if scan.risk_level == 'Inconclusive' else 'emerald' %}
-                    <span class="text-{{ badge_color }} fs-5 fw-extrabold font-monospace text-uppercase">{{ scan.risk_level }}</span>
+                    <span class="text-{{ badge_color }} fs-5 fw-extrabold font-monospace text-uppercase">{{ scan.risk_level|upper }}</span>
                 </div>
                 <div class="p-2.5 rounded-3 text-start" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
                     <span class="d-block text-muted fs-9 font-monospace text-uppercase">AUDIT TIME:</span>
@@ -110,7 +115,7 @@
                                 <li class="d-flex justify-content-between align-items-center">
                                     <span>Risk Assessment:</span>
                                     {% set badge_color = 'danger' if scan.risk_level == 'High' else 'warning' if scan.risk_level == 'Medium' else 'secondary' if scan.risk_level == 'Inconclusive' else 'emerald' %}
-                                    <span class="text-{{ badge_color }} fw-bold text-uppercase font-monospace">{{ scan.risk_level }}</span>
+                                    <span class="text-{{ badge_color }} fw-bold text-uppercase font-monospace">{{ scan.risk_level|upper }}</span>
                                 </li>
                             </ul>
                         </div>
@@ -129,7 +134,7 @@
                                 <li class="d-flex justify-content-between align-items-center">
                                     <span>Execution Engine:</span>
                                     <span class="{% if scan.scanner_mode == 'REAL_NMAP' %}text-emerald{% else %}text-warning{% endif %} font-monospace fs-8 fw-semibold">
-                                        {% if scan.scanner_mode == 'REAL_NMAP' %}REAL NMAP{% else %}SIMULATED ENGINE{% endif %}
+                                        {% if scan.scanner_mode == 'REAL_NMAP' %}REAL NMAP{% else %}<span class="badge bg-warning text-dark font-monospace text-uppercase fs-9">SIMULATED</span>{% endif %}
                                     </span>
                                 </li>
                             </ul>
@@ -138,27 +143,28 @@
 
                 {% if scan.scanner_mode != 'REAL_NMAP' %}
                 <div class="alert alert-warning py-2.5 px-3 rounded-3 mb-3 fs-8 d-flex align-items-center">
-                    <i class="bi bi-info-circle-fill me-2 fs-6"></i>
+                    <i class="bi bi-exclamation-triangle-fill me-2 fs-6 text-warning"></i>
                     <div>
-                        <strong>Simulated Demonstration Mode:</strong> These findings are generated as mock demonstration data. No live network packets or port scans were sent to the target host.
+                        <strong class="d-block text-uppercase">SIMULATED DATA - NOT A REAL ASSESSMENT</strong>
+                        <span>These findings are generated as mock demonstration data. No live network packets or port scans were sent to the target host.</span>
                     </div>
                 </div>
                 {% endif %}
 
                 {% if scan.status == 'inconclusive' %}
-                <div class="alert alert-secondary py-3 px-3.5 rounded-3 mb-4 fs-8 border-secondary" style="background: rgba(100, 116, 139, 0.15);">
+                <div class="alert alert-danger py-3 px-3.5 rounded-3 mb-4 fs-8 border-danger" style="background: rgba(239, 68, 68, 0.15);">
                     <div class="d-flex align-items-start gap-2.5">
-                        <i class="bi bi-exclamation-octagon-fill text-warning fs-5 mt-0.5"></i>
+                        <i class="bi bi-exclamation-octagon-fill text-danger fs-5 mt-0.5"></i>
                         <div>
                             <strong class="text-white d-block mb-1">Scan Inconclusive</strong>
-                            <p class="text-white-50 mb-0">The target host did not respond with complete port information or timed out during assessment. No conclusion about network exposure can be drawn. Automated AI Analysis and PDF compliance exports are disabled. Please re-run the scan.</p>
+                            <p class="text-white-50 mb-0">Scan did not complete; no conclusion about exposure can be drawn. Re-run the scan.</p>
                         </div>
                     </div>
                 </div>
                 {% endif %}
 
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <h3 class="h6 fw-bold text-white mb-0">Evaluated Host Services ({{ results|length }})</h3>
+                    <h3 class="h6 fw-bold text-white mb-0">Observed Exposure (open ports) ({{ results|length }})</h3>
                 </div>
                 
                 {% if results %}
@@ -176,7 +182,7 @@
                                         </div>
                                         <span class="badge bg-{{ state_badge }}-transparent text-{{ state_badge }} font-monospace text-uppercase fs-9 ms-2">{{ result.state }}</span>
                                     </div>
-                                    <span class="badge bg-{{ sev_color }}-transparent text-{{ sev_color }} font-monospace text-uppercase fs-9">{{ result.severity }} Risk</span>
+                                    <span class="badge bg-{{ sev_color }}-transparent text-{{ sev_color }} font-monospace text-uppercase fs-9">Exposure Level: {{ result.severity }}</span>
                                 </div>
                                 
                                 <div class="row g-2 mb-2 fs-8">
@@ -212,20 +218,20 @@
                     </div>
                 {% else %}
                     {% if scan.status == 'inconclusive' %}
-                    <div class="cyber-card p-5 text-center rounded-4 border-warning">
-                        <div class="feature-icon mx-auto mb-3" style="background: rgba(245, 158, 11, 0.1);">
-                            <i class="bi bi-exclamation-triangle-fill text-warning fs-3"></i>
+                    <div class="cyber-card p-5 text-center rounded-4 border-danger">
+                        <div class="feature-icon mx-auto mb-3" style="background: rgba(239, 68, 68, 0.1);">
+                            <i class="bi bi-exclamation-triangle-fill text-danger fs-3"></i>
                         </div>
                         <h4 class="text-white fw-bold mb-1">Scan Inconclusive</h4>
-                        <p class="text-white-50 fs-8 mb-0">Scan did not complete - no conclusion about exposure can be drawn. Re-run the scan.</p>
+                        <p class="text-white-50 fs-8 mb-0">Scan did not complete; no conclusion about exposure can be drawn. Re-run the scan.</p>
                     </div>
                     {% else %}
                     <div class="cyber-card p-5 text-center rounded-4">
                         <div class="feature-icon mx-auto mb-3" style="background: rgba(16, 244, 156, 0.1);">
                             <i class="bi bi-shield-fill-check text-emerald fs-3"></i>
                         </div>
-                        <h4 class="text-white fw-bold mb-1">No Active Services Discovered</h4>
-                        <p class="text-white-50 fs-8 mb-0">The scanner did not detect any open ports or listening daemon services on the target host.</p>
+                        <h4 class="text-white fw-bold mb-1">No Open Ports Observed</h4>
+                        <p class="text-white-50 fs-8 mb-0">No open ports observed among scanned ports: {{ '80, 443' if scan.scan_profile == 'Quick Scan' else '22, 80, 443, 3389, 8080' }}. This does not rule out other exposure.</p>
                     </div>
                     {% endif %}
                 {% endif %}
@@ -246,7 +252,7 @@
                         <div class="mb-3">
                             <span class="d-block text-white-50 fs-9 font-monospace text-uppercase">OVERALL AI RISK LEVEL:</span>
                             {% set risk_color = 'danger' if ai_data.overall_risk.lower() == 'critical' or ai_data.overall_risk.lower() == 'high' else 'warning' if ai_data.overall_risk.lower() == 'medium' else 'cyan' if ai_data.overall_risk.lower() == 'low' else 'emerald' %}
-                            <span class="badge bg-{{ risk_color }}-transparent text-{{ risk_color }} text-uppercase fs-8 font-monospace mt-1">{{ ai_data.overall_risk }}</span>
+                            <span class="badge bg-{{ risk_color }}-transparent text-{{ risk_color }} text-uppercase fs-8 font-monospace mt-1">{{ ai_data.overall_risk|upper }}</span>
                         </div>
 
                         <div class="mb-3 p-3 rounded-3" style="background: rgba(139, 92, 246, 0.04); border: 1px solid rgba(139, 92, 246, 0.2);">
@@ -418,8 +424,11 @@
                     </h4>
                     {% if scan.status == 'inconclusive' %}
                         <div class="alert alert-dark border-secondary text-white-50 fs-9 p-2.5 rounded-3 mb-2">
-                            <i class="bi bi-lock-fill text-warning me-1"></i>AI Analysis and PDF reports are unavailable for inconclusive scans.
+                            <i class="bi bi-lock-fill text-warning me-1"></i>AI Analysis is unavailable for inconclusive scans.
                         </div>
+                        <a href="{{ url_for('network_scanner.download_pdf', uuid=scan.uuid) }}" class="btn btn-outline-warning w-100 py-2.5 rounded-pill fw-semibold btn-sm mb-2">
+                            <i class="bi bi-file-earmark-pdf-fill me-1.5"></i>Download Inconclusive Audit PDF
+                        </a>
                     {% elif ai_data %}
                         <a href="{{ url_for('network_scanner.download_pdf', uuid=scan.uuid) }}" class="btn btn-emerald w-100 py-2.5 rounded-pill fw-semibold btn-sm shadow-lg-emerald mb-2">
                             <i class="bi bi-file-earmark-pdf-fill me-1.5"></i>Download PDF Report

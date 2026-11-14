@@ -83,9 +83,9 @@
                 </div>
                 
                 {% if not is_nmap_installed %}
-                    <div class="alert alert-warning text-start py-2.5 px-3 rounded-3 mb-4 fs-8">
+                    <div class="alert alert-danger text-start py-2.5 px-3 rounded-3 mb-4 fs-8">
                         <i class="bi bi-exclamation-triangle-fill me-2 fs-7"></i>
-                        <strong>Nmap CLI Notice:</strong> Standard binary not detected in system PATH. Autonomous Simulated Engine is active for safe demonstrations.
+                        <strong>Nmap CLI Notice:</strong> Nmap not found, install it from nmap.org
                     </div>
                 {% endif %}
 
@@ -110,12 +110,16 @@
                     </div>
 
                     <!-- Scanner Mode Field -->
+                    {% if config.get('DEMO_MODE') %}
                     <div class="mb-3 text-start">
                         <label for="scanner_mode" class="form-label text-white-50 fs-8 font-monospace text-uppercase mb-2">
                             <i class="bi bi-gear-wide-connected text-cyan me-1"></i>Scanner Execution Mode
                         </label>
                         {{ form.scanner_mode(class="form-select font-monospace py-2.5", id="scanner_mode") }}
                     </div>
+                    {% else %}
+                        {{ form.scanner_mode(class="d-none", id="scanner_mode") }}
+                    {% endif %}
 
                     <!-- Profile Selector -->
                     <div class="mb-4 text-start">

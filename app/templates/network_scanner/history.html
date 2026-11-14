@@ -82,7 +82,12 @@
                                 <tbody>
                                     {% for scan in scans %}
                                     <tr>
-                                        <td class="font-monospace fw-bold text-white fs-8">{{ scan.ip_address }}</td>
+                                        <td class="font-monospace fw-bold text-white fs-8">
+                                            {{ scan.ip_address }}
+                                            {% if scan.scanner_mode == 'MOCK' %}
+                                                <span class="badge bg-warning text-dark font-monospace text-uppercase fs-9 ms-1">SIMULATED</span>
+                                            {% endif %}
+                                        </td>
                                         <td class="fs-8 text-white-50 font-monospace">{{ scan.scan_profile }}</td>
                                         <td>
                                             {% set badge_color = 'danger' if scan.risk_level == 'High' else 'warning' if scan.risk_level == 'Medium' else 'secondary' if scan.risk_level == 'Inconclusive' else 'emerald' %}

@@ -175,7 +175,12 @@
                                 <tr>
                                     <td class="font-monospace fs-8 text-white-50">{{ act.time }}</td>
                                     <td class="fw-semibold text-white fs-7">{{ act.action }}</td>
-                                    <td><code class="text-cyan font-monospace fs-8">{{ act.target }}</code></td>
+                                    <td>
+                                        <code class="text-cyan font-monospace fs-8">{{ act.target }}</code>
+                                        {% if act.is_mock %}
+                                        <span class="badge bg-warning text-dark font-monospace text-uppercase fs-9 ms-1">SIMULATED</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="fs-8 text-white-50">{{ act.user }}</td>
                                     <td class="text-end">
                                         <span class="badge bg-{{ act.badge }}-transparent text-{{ act.badge }} font-monospace fs-9 text-uppercase">
@@ -260,6 +265,9 @@
                                             <div class="col-6">
                                                 <span class="d-block text-muted fs-8 font-monospace text-uppercase">TARGET VECTOR:</span>
                                                 <code class="text-cyan font-monospace fw-bold fs-7">{{ latest_scan.target_destination if scan_type == 'website' else latest_scan.ip_address }}</code>
+                                                {% if scan_type == 'network' and latest_scan.scanner_mode == 'MOCK' %}
+                                                <span class="badge bg-warning text-dark font-monospace text-uppercase fs-9 ms-1">SIMULATED</span>
+                                                {% endif %}
                                             </div>
                                             <div class="col-6">
                                                 <span class="d-block text-white-50 fs-8 font-monospace text-uppercase">AUDIT PROFILE:</span>

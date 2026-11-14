@@ -85,6 +85,11 @@ def results(uuid):
     if scan.ai_response:
         try:
             ai_data = json.loads(scan.ai_response.response_text)
+            if ai_data and isinstance(ai_data, dict):
+                score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
+                net_score = 100 if not scan.results else score_map.get(scan.risk_level, 70)
+                ai_data["overall_risk"] = scan.risk_level
+                ai_data["security_score"] = net_score
         except Exception:
             pass
         
@@ -107,8 +112,15 @@ def api_scan():
     profile = data.get('scan_profile', 'Quick Scan').strip()
     
     is_testing = current_app.config.get('TESTING', False)
-    default_mode = 'MOCK' if is_testing else 'REAL_NMAP'
+    demo_mode = current_app.config.get('DEMO_MODE', False)
+    default_mode = 'MOCK' if (is_testing and demo_mode) else 'REAL_NMAP'
     mode = data.get('scanner_mode', default_mode).strip()
+    
+    if mode == 'MOCK' and not demo_mode:
+        return jsonify({
+            'success': False,
+            'error': 'Simulated demonstration mode is disabled.'
+        }), 400
     
     # 1. Run basic validator programmatically
     form = NetworkScanForm(data=data)
@@ -230,14 +242,23 @@ def trigger_ai(uuid):
             "remediation": result.remediation or "Restrict access to trusted hosts using local firewall configurations."
         })
 
+    score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
+    net_score = 100 if not findings_data else score_map.get(scan.risk_level, 70)
+
     scan_results_payload = {
         "target": scan.ip_address,
         "scan_type": "network",
+        "overall_risk": scan.risk_level,
+        "security_score": net_score,
+        "enforce_authoritative_metrics": True,
         "findings": findings_data
     }
     
     try:
         ai_data = AIAnalysisService.analyze_scan(scan_results_payload, fallback_on_quota=True, user_id=current_user.id)
+        # Force authoritative network scanner values
+        ai_data["overall_risk"] = scan.risk_level
+        ai_data["security_score"] = net_score
         model_used = ai_data.get("_model_used", AIAnalysisService.DEFAULT_MODEL)
         
         db_response = AIResponse(
@@ -295,18 +316,19 @@ def download_pdf(uuid):
         except Exception:
             pass
         abort(403)
-        
-    if scan.status == 'inconclusive':
-        flash("PDF reports cannot be generated for inconclusive scans.", "warning")
-        return redirect(url_for('network_scanner.results', uuid=scan.uuid))
 
     ai_data = None
-    if scan.ai_response:
+    if scan.status != 'inconclusive' and scan.ai_response:
         try:
             if isinstance(scan.ai_response.response_text, str):
                 ai_data = json.loads(scan.ai_response.response_text)
             elif isinstance(scan.ai_response.response_text, dict):
                 ai_data = scan.ai_response.response_text
+            if ai_data and isinstance(ai_data, dict):
+                score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
+                net_score = 100 if not scan.results else score_map.get(scan.risk_level, 70)
+                ai_data["overall_risk"] = scan.risk_level
+                ai_data["security_score"] = net_score
         except Exception:
             pass
             

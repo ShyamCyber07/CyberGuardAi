@@ -201,7 +201,7 @@ def test_nmap_version_lazy_detection_success_and_cache():
         mock_run.return_value = mock_resp
 
         ver1 = nss.get_nmap_version()
-        assert ver1 == "Nmap version 7.95 ( https://nmap.org )"
+        assert ver1 == "7.95"
         assert nss._cached_nmap_version == ver1
         mock_ensure.assert_called_once()
         assert mock_run.call_count == 1
@@ -240,7 +240,7 @@ def test_nmap_version_detection_failure_no_cache_retry_and_unknown_in_evidence(a
         mock_run.return_value = mock_resp
 
         ver_retry = nss.get_nmap_version()
-        assert ver_retry == "Nmap version 7.991 ( https://nmap.org )"
+        assert ver_retry == "7.991"
         assert nss._cached_nmap_version == ver_retry
         assert mock_run.call_count == 1
 

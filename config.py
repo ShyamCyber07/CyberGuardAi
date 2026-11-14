@@ -37,6 +37,9 @@ class Config:
     
     # Flask-WTF CSRF protection
     WTF_CSRF_ENABLED = True
+    
+    # Demonstration / Simulated Scanner Mode gating (default False)
+    DEMO_MODE = os.environ.get('DEMO_MODE', 'false').lower() in ('true', '1')
 
 class DevelopmentConfig(Config):
     """Development environment configuration."""
@@ -56,6 +59,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = f"sqlite:///{BASE_DIR / 'test_temp.db'}"
     WTF_CSRF_ENABLED = False
     SESSION_COOKIE_SECURE = False
+    DEMO_MODE = True
 
 class ProductionConfig(Config):
     """Production environment configuration."""

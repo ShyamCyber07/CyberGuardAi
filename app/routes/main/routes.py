@@ -119,11 +119,21 @@ def dashboard():
     
     # Fetch real recent scans for history list
     user_scans = Scan.query.filter_by(user_id=current_user.id).order_by(Scan.started_at.desc()).limit(4).all()
+    user_net_scans = NetworkScan.query.filter_by(user_id=current_user.id).order_by(NetworkScan.started_at.desc()).limit(4).all()
+    
+    combined_recent = []
+    for s in user_scans:
+        combined_recent.append(('website', s, s.started_at))
+    for s in user_net_scans:
+        combined_recent.append(('network', s, s.started_at))
+    combined_recent.sort(key=lambda x: x[2] if x[2] else datetime.min, reverse=True)
+
     recent_activity = []
     
-    for scan in user_scans:
+    for stype, scan, _ in combined_recent[:4]:
         # Time ago string format
-        diff = datetime.now(timezone.utc) - scan.started_at.replace(tzinfo=timezone.utc)
+        scan_started = scan.started_at.replace(tzinfo=timezone.utc) if scan.started_at and scan.started_at.tzinfo is None else (scan.started_at or datetime.now(timezone.utc))
+        diff = datetime.now(timezone.utc) - scan_started
         if diff.days > 0:
             time_str = f"{diff.days} days ago"
         elif diff.seconds // 3600 > 0:
@@ -133,19 +143,29 @@ def dashboard():
         else:
             time_str = "just now"
             
-        badge_map = {'completed': 'success', 'running': 'info', 'failed': 'danger'}
+        badge_map = {'completed': 'success', 'running': 'info', 'failed': 'danger', 'inconclusive': 'secondary'}
         
+        if stype == 'website':
+            action_text = f"Diagnostics Scan Complete ({scan.security_score}/100)" if scan.status == 'completed' else "Scan Running"
+            target_text = scan.target_destination
+            is_mock = False
+        else:
+            action_text = f"Network Audit Complete ({scan.risk_level} Risk)" if scan.status == 'completed' else "Network Scan Running"
+            target_text = scan.ip_address
+            is_mock = getattr(scan, 'scanner_mode', 'REAL_NMAP') == 'MOCK'
+
         recent_activity.append({
             'time': time_str,
-            'action': f"Diagnostics Scan Complete ({scan.security_score}/100)" if scan.status == 'completed' else "Scan Running",
-            'target': scan.target_destination,
+            'action': action_text,
+            'target': target_text,
             'user': current_user.email,
             'status': scan.status,
-            'badge': badge_map.get(scan.status, 'secondary')
+            'badge': badge_map.get(scan.status, 'secondary'),
+            'is_mock': is_mock
         })
         
     # Provide placeholders if scan history is empty to retain premium dashboard aesthetics
-    if total_scans == 0:
+    if not recent_activity:
         recent_activity = [
             {
                 'time': 'No scans',
@@ -153,7 +173,8 @@ def dashboard():
                 'target': 'None',
                 'user': current_user.email,
                 'status': 'inactive',
-                'badge': 'secondary'
+                'badge': 'secondary',
+                'is_mock': False
             }
         ]
         
@@ -285,7 +306,8 @@ def history():
             'status': s.status,
             'security_score': score_val,
             'risk_level': risk_level,
-            'has_ai': s.ai_response is not None
+            'has_ai': s.ai_response is not None,
+            'scanner_mode': getattr(s, 'scanner_mode', 'REAL_NMAP')
         })
 
     # 4. Search filter

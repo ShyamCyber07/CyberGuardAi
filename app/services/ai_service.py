@@ -156,6 +156,39 @@ def parse_gemini_quota_error(response: requests.Response) -> Tuple[str, Optional
     return user_msg, retry_delay, is_daily
 
 
+BANNED_NETWORK_PHRASES = (
+    "no critical",
+    "no high",
+    "no vulnerabilities",
+    "no issues",
+    "clean",
+    "risk posture",
+    "secure",
+    "safe",
+)
+
+
+def filter_network_executive_summary(summary: str, n_ports: int, risk_level: str = "Low") -> str:
+    """Post-filter on AI/fallback network text.
+    If it contains any of: 'no critical', 'no high', 'no vulnerabilities', 'no issues',
+    'clean', 'risk posture', 'secure', 'safe', replace the whole executive summary with:
+    'N open ports were observed. The <RISK> exposure level is a rule-based rating of the observed ports; this scan did not test for vulnerabilities.'
+    """
+    risk_str = (risk_level or "Low").upper()
+    deterministic_sentence = (
+        f"{n_ports} open ports were observed. The {risk_str} exposure level is a "
+        f"rule-based rating of the observed ports; this scan did not test for vulnerabilities."
+    )
+    if not summary:
+        return deterministic_sentence
+
+    summary_lower = summary.lower()
+    if any(phrase in summary_lower for phrase in BANNED_NETWORK_PHRASES):
+        return deterministic_sentence
+
+    return summary
+
+
 def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quota limit reached") -> Dict[str, Any]:
     """
     Generate an offline rule-based heuristic assessment matching the standard AI response schema.
@@ -191,15 +224,27 @@ def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quo
     has_high = any(str(f.get("severity", "")).lower() == "high" for f in findings)
     has_medium = any(str(f.get("severity", "")).lower() == "medium" for f in findings)
 
+    is_network = (scan_results.get("scan_type") == "network")
+
     if not findings:
-        overall_risk = "None"
-        critical_findings = []
-        recommendations = ["Target configuration returned clean audit signatures. Continue routine monitoring."]
-        remediation_priority = []
-        summary = (
-            f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
-            f"Automated heuristic review confirms target '{target}' has no detected vulnerabilities or exposed risks."
-        )
+        if is_network:
+            overall_risk = str(scan_results.get("overall_risk") or "Low").capitalize()
+            critical_findings = []
+            recommendations = ["Continue routine perimeter monitoring and schedule regular multi-port audits."]
+            remediation_priority = []
+            summary = (
+                f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
+                "0 open ports were observed; this scan did not test for vulnerabilities."
+            )
+        else:
+            overall_risk = "None"
+            critical_findings = []
+            recommendations = ["Target configuration returned no high-risk observations. Continue routine monitoring."]
+            remediation_priority = []
+            summary = (
+                f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
+                f"Automated heuristic review confirms target '{target}' has no high-risk findings or exposed risks."
+            )
     else:
         from app.models.scan import derive_risk
         overall_risk = str(derive_risk(score, findings))
@@ -233,17 +278,23 @@ def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quo
                 "remediation": str(f.get("remediation", "Implement standard defensive controls."))
             })
 
-        # Use authoritative score and risk if supplied in scan_results
-        if scan_results.get("security_score") is not None:
-            score = int(scan_results["security_score"])
-        if scan_results.get("overall_risk") is not None:
-            overall_risk = scan_results["overall_risk"]
+        if is_network:
+            summary = (
+                f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
+                f"{len(findings)} open ports were observed; this scan did not test for vulnerabilities."
+            )
+        else:
+            summary = (
+                f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
+                f"Automated heuristic assessment cataloged {len(findings)} finding(s) on target '{target}'. "
+                f"Overall defensive posture is rated as {overall_risk}."
+            )
 
-        summary = (
-            f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
-            f"Automated heuristic assessment cataloged {len(findings)} finding(s) on target '{target}'. "
-            f"Overall defensive posture is rated as {overall_risk}."
-        )
+    # Use authoritative score and risk if supplied in scan_results
+    if scan_results.get("security_score") is not None:
+        score = int(scan_results["security_score"])
+    if scan_results.get("overall_risk") is not None:
+        overall_risk = str(scan_results["overall_risk"]).capitalize()
 
     fallback_payload = {
         "security_score": score,
@@ -255,6 +306,13 @@ def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quo
         "_fallback": True,
         "_model_used": "rule-based-fallback"
     }
+
+    if is_network:
+        fallback_payload["executive_summary"] = filter_network_executive_summary(
+            fallback_payload["executive_summary"],
+            len(findings),
+            overall_risk
+        )
 
     return fallback_payload
 
@@ -391,12 +449,15 @@ class AIAnalysisService:
             valid_findings = [f for f in raw_findings if isinstance(f, dict)]
 
             if not valid_findings:
-                # Clean scan target: AI must not invent critical findings or high risk
+                # Scan target with no findings: AI must not invent critical findings or high risk
                 if parsed_json.get("critical_findings"):
-                    logger.warning("Sanitizing invented critical findings on clean scan target")
+                    logger.warning("Sanitizing invented critical findings on target with no findings")
                     parsed_json["critical_findings"] = []
-                if parsed_json.get("overall_risk") in ("Critical", "High"):
-                    logger.warning("Correcting contradictory AI overall risk on clean target")
+                if scan_results.get("scan_type") == "network":
+                    if scan_results.get("overall_risk"):
+                        parsed_json["overall_risk"] = str(scan_results["overall_risk"]).capitalize()
+                elif parsed_json.get("overall_risk") in ("Critical", "High"):
+                    logger.warning("Correcting contradictory AI overall risk on target with no findings")
                     parsed_json["overall_risk"] = "None"
             else:
                 scanner_names_lower = [f.get("name", "").strip().lower() for f in valid_findings]
@@ -449,6 +510,16 @@ class AIAnalysisService:
                     parsed_json["security_score"] = int(scan_results["security_score"])
                 if "overall_risk" in scan_results and scan_results["overall_risk"] is not None:
                     parsed_json["overall_risk"] = str(scan_results["overall_risk"]).capitalize()
+
+        if scan_results and isinstance(scan_results, dict) and scan_results.get("scan_type") == "network":
+            findings = [f for f in scan_results.get("findings", []) if isinstance(f, dict)]
+            n_ports = len(findings)
+            risk = parsed_json.get("overall_risk") or scan_results.get("overall_risk") or "Low"
+            parsed_json["executive_summary"] = filter_network_executive_summary(
+                parsed_json.get("executive_summary", ""),
+                n_ports,
+                str(risk)
+            )
 
         return parsed_json
 
@@ -512,18 +583,36 @@ Your task is to analyze the security scanner results and generate a structured r
 
 ### SCAN FINDINGS
 """
-        if not findings:
-            prompt += "No vulnerabilities or open ports were detected during this scan.\n"
+        if scan_type == "network":
+            n_ports = len(findings)
+            prompt += f"{n_ports} open ports were observed; this scan did not test for vulnerabilities.\n\n"
+            if findings:
+                for idx, finding in enumerate(findings, start=1):
+                    if isinstance(finding, dict):
+                        prompt += f"Finding #{idx}:\n"
+                        prompt += f"- Name: {finding.get('name', 'Unknown')}\n"
+                        prompt += f"- Severity: {finding.get('severity', 'Unknown')}\n"
+                        prompt += f"- Description: {finding.get('description', 'No description provided')}\n"
+                        prompt += f"- Remediation: {finding.get('remediation', 'No remediation provided')}\n\n"
+            prompt += f"""
+### CRITICAL COMPLIANCE RULES:
+1. For network scans, you are strictly FORBIDDEN from making statements about vulnerabilities being found or not found.
+2. The allowed claim is: "{n_ports} open ports were observed; this scan did not test for vulnerabilities."
+3. Open ports are observed exposures, NOT confirmed vulnerabilities. Adhere strictly to the authoritative risk level.
+"""
         else:
-            for idx, finding in enumerate(findings, start=1):
-                if isinstance(finding, dict):
-                    prompt += f"Finding #{idx}:\n"
-                    prompt += f"- Name: {finding.get('name', 'Unknown')}\n"
-                    prompt += f"- Severity: {finding.get('severity', 'Unknown')}\n"
-                    prompt += f"- Description: {finding.get('description', 'No description provided')}\n"
-                    prompt += f"- Remediation: {finding.get('remediation', 'No remediation provided')}\n\n"
+            if not findings:
+                prompt += "No vulnerabilities or open ports were detected during this scan.\n"
+            else:
+                for idx, finding in enumerate(findings, start=1):
+                    if isinstance(finding, dict):
+                        prompt += f"Finding #{idx}:\n"
+                        prompt += f"- Name: {finding.get('name', 'Unknown')}\n"
+                        prompt += f"- Severity: {finding.get('severity', 'Unknown')}\n"
+                        prompt += f"- Description: {finding.get('description', 'No description provided')}\n"
+                        prompt += f"- Remediation: {finding.get('remediation', 'No remediation provided')}\n\n"
 
-        prompt += """
+            prompt += """
 ### CRITICAL COMPLIANCE RULES:
 1. You must ONLY analyze the provided scan findings. Under no circumstances may you invent, suggest, assume, or infer that other vulnerabilities or open ports exist.
 2. If no vulnerabilities are reported, rate the security score as 100, overall risk as 'None', and confirm that the target is well-secured.
@@ -657,7 +746,7 @@ Respond STRICTLY with a valid JSON object matching the following structure:
             logger.warning(f"Gemini API quota exhausted: {user_msg}")
             if fallback_on_quota:
                 fallback_data = generate_heuristic_fallback(scan_results, reason=user_msg)
-                return cls._validate_response(fallback_data)
+                return cls._validate_response(fallback_data, scan_results=scan_results)
             else:
                 raise GeminiQuotaExceededError(user_msg, retry_delay=retry_delay, is_daily_quota=is_daily)
 

@@ -1107,10 +1107,11 @@ def test_review_pass_item5_block_ai_and_pdf_for_inconclusive(app, db, test_users
     assert res_ai.status_code == 200
     assert b"AI analysis cannot be generated for an inconclusive scan." in res_ai.data
 
-    # 2. Download PDF route (/results/<uuid>/pdf) blocks and redirects with warning
+    # 2. Download PDF route (/results/<uuid>/pdf) succeeds and generates inconclusive audit PDF
     res_pdf = client.get(f'/scanner/network/results/{scan_uuid}/pdf', follow_redirects=True)
     assert res_pdf.status_code == 200
-    assert b"PDF reports cannot be generated for inconclusive scans." in res_pdf.data
+    assert res_pdf.headers['Content-Type'] == 'application/pdf'
+    assert "INCONCLUSIVE" in res_pdf.data.decode('latin1', errors='ignore')
 
     # 3. AIAssistantService blocks with clear ValueError
     from app.services.ai_assistant_service import AIAssistantService
@@ -1122,12 +1123,13 @@ def test_review_pass_item5_block_ai_and_pdf_for_inconclusive(app, db, test_users
             user_question="What ports are open?"
         )
 
-    # 4. PDFGeneratorService blocks with clear ValueError
+    # 4. PDFGeneratorService allows inconclusive scans with red banner
     from app.services.pdf_service import PDFGeneratorService
     with app.app_context():
         scan_obj = NetworkScan.query.filter_by(uuid=scan_uuid).first()
-        with pytest.raises(ValueError, match="PDF report cannot be generated for an inconclusive scan"):
-            PDFGeneratorService.generate_scan_report(test_users['user'].id, scan_obj, None)
+        rep = PDFGeneratorService.generate_scan_report(test_users['user'].id, scan_obj, None)
+        assert rep is not None
+        assert rep.status == 'finalized'
 
 
 @patch("app.routes.network_scanner.routes.is_nmap_available", return_value=True)
