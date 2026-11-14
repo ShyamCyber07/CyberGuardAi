@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Network Security Scanner - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+
+                <span class="sidebar-category">Intelligence</span>
+                <a href="{{ url_for('assistant.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-robot text-purple"></i>
+                    <span>AI Copilot</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+                
+                <span class="sidebar-category">System</span>
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-nav-link">
+                    <i class="bi bi-person-gear"></i>
+                    <span>Profile & Keys</span>
+                </a>
+                {% if current_user.role == 'admin' %}
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span class="text-danger fw-semibold">Admin Console</span>
+                </a>
+                {% endif %}
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-white fw-bold fs-7 text-uppercase font-monospace">{{ current_user.role }}</span>
+                    <span class="badge bg-emerald-transparent text-emerald fs-9 px-2 py-0.5 rounded-pill">AUTHENTICATED</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content d-flex align-items-center justify-content-center">
+        <div class="col-md-9 col-lg-7 col-xl-6">
+            <div class="cyber-card p-5 rounded-4 text-center position-relative">
+                <!-- Glowing Radar Emblem -->
+                <div class="mb-4">
+                    <div class="radar-ring-wrapper mb-3" style="width: 110px; height: 110px;">
+                        <div class="radar-ring radar-ring-1"></div>
+                        <div class="radar-ring radar-ring-2"></div>
+                        <div class="radar-sweep-center" style="width: 44px; height: 44px;">
+                            <i class="bi bi-broadcast fs-4 text-emerald"></i>
+                        </div>
+                    </div>
+                    <span class="font-monospace fs-8 text-emerald fw-bold text-uppercase tracking-wider">// INFRASTRUCTURE PROBE</span>
+                    <h2 class="display-6 fw-extrabold text-white mt-1 mb-2">Network Port Diagnostics</h2>
+                    <p class="text-white-50 fs-7 mx-auto" style="max-width: 440px;">
+                        Audit target IP addresses, active listening daemon sockets, and exposed service banners in real-time.
+                    </p>
+                </div>
+                
+                {% if not is_nmap_installed %}
+                    <div class="alert alert-warning text-start py-2.5 px-3 rounded-3 mb-4 fs-8">
+                        <i class="bi bi-exclamation-triangle-fill me-2 fs-7"></i>
+                        <strong>Nmap CLI Notice:</strong> Standard binary not detected in system PATH. Autonomous Simulated Engine is active for safe demonstrations.
+                    </div>
+                {% endif %}
+
+                <form id="networkScanForm" method="POST" action="">
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Host IP Field -->
+                    <div class="mb-3 text-start">
+                        <label for="ip_address" class="form-label text-white-50 fs-8 font-monospace text-uppercase mb-2">
+                            <i class="bi bi-hdd-network text-cyan me-1"></i>Target IP Address or Hostname
+                        </label>
+                        {% if form.ip_address.errors %}
+                            {{ form.ip_address(class="form-control font-monospace py-2.5 text-center border-danger", id="ip_address", placeholder="192.168.1.1 or scanme.nmap.org") }}
+                            <div class="text-danger fs-8 mt-2">
+                                {% for error in form.ip_address.errors %}
+                                    <span><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ form.ip_address(class="form-control font-monospace py-2.5 text-center", id="ip_address", placeholder="192.168.1.1 or scanme.nmap.org") }}
+                        {% endif %}
+                    </div>
+
+                    <!-- Scanner Mode Field -->
+                    <div class="mb-3 text-start">
+                        <label for="scanner_mode" class="form-label text-white-50 fs-8 font-monospace text-uppercase mb-2">
+                            <i class="bi bi-gear-wide-connected text-cyan me-1"></i>Scanner Execution Mode
+                        </label>
+                        {{ form.scanner_mode(class="form-select font-monospace py-2.5", id="scanner_mode") }}
+                    </div>
+
+                    <!-- Profile Selector -->
+                    <div class="mb-4 text-start">
+                        <label for="scan_profile" class="form-label text-white-50 fs-8 font-monospace text-uppercase mb-2">
+                            <i class="bi bi-sliders text-cyan me-1"></i>Assessment Scan Profile
+                        </label>
+                        {{ form.scan_profile(class="form-select font-monospace py-2.5", id="scan_profile") }}
+                        <div class="form-text text-white-50 fs-9 mt-1">
+                            <i class="bi bi-info-circle text-cyan me-1"></i>Service Detection can take up to 2 minutes.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" id="submitScan" class="btn btn-emerald py-3 rounded-pill fw-semibold fs-7 d-flex align-items-center justify-content-center gap-2">
+                            <i class="bi bi-play-circle-fill fs-6"></i>
+                            <span>Execute Network Audit</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="row g-2 mt-4 pt-3 border-top border-secondary text-center font-monospace fs-9 text-white-50">
+                    <div class="col-4">TCP Connect Probe</div>
+                    <div class="col-4">Service Fingerprints</div>
+                    <div class="col-4">CVE Heuristics</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fullscreen Scanning Simulation Animation Modal -->
+<div id="scanOverlay" class="scan-overlay d-none">
+    <div class="scan-overlay-content text-center p-4 rounded-4" style="background: rgba(8, 12, 22, 0.95); border: 1px solid var(--border-glow); box-shadow: 0 0 50px rgba(0, 242, 254, 0.25);">
+        <div class="radar-ring-wrapper mb-4" style="width: 100px; height: 100px;">
+            <div class="radar-ring radar-ring-1"></div>
+            <div class="radar-ring radar-ring-2"></div>
+            <div class="radar-sweep-center">
+                <i class="bi bi-broadcast fs-4 text-emerald"></i>
+            </div>
+        </div>
+        <h3 id="scanProgressHeading" class="text-white fw-bold mb-1">Scanning Host Vector...</h3>
+        <p id="scanProgressSub" class="text-white-50 fs-7 font-monospace mb-4">Emitting TCP SYN packets...</p>
+        
+        <div class="progress-cyber mx-auto" style="height: 10px; max-width: 380px;">
+            <div id="scanProgressBar" class="progress-bar-cyber progress-bar-striped-cyber" role="progressbar" style="width: 5%; height: 100%; transition: width 0.8s ease;" aria-valuenow="5" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+.scan-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(4, 6, 12, 0.95);
+    backdrop-filter: blur(20px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.scan-overlay-content {
+    max-width: 460px;
+    width: 90%;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const scanForm = document.getElementById('networkScanForm');
+    const overlay = document.getElementById('scanOverlay');
+    const heading = document.getElementById('scanProgressHeading');
+    const sub = document.getElementById('scanProgressSub');
+    const bar = document.getElementById('scanProgressBar');
+    
+    if (scanForm) {
+        scanForm.addEventListener('submit', (e) => {
+            const ipAddress = document.getElementById('ip_address').value.trim();
+            if (!ipAddress) return;
+
+            overlay.classList.remove('d-none');
+            e.preventDefault();
+            
+            const stages = [
+                { percent: 20, head: "Validating Network Route...", sub: "Verifying target IP reachability and route tables..." },
+                { percent: 50, head: "Running Port Range Sweep...", sub: "Testing common listening services on target ports..." },
+                { percent: 80, head: "Probing Service Signatures...", sub: "Capturing service response headers and daemon banners..." },
+                { percent: 96, head: "Compiling Port Matrix...", sub: "Generating telemetry findings and risk index..." }
+            ];
+            
+            let stageIndex = 0;
+            const timer = setInterval(() => {
+                if (stageIndex < stages.length) {
+                    const current = stages[stageIndex];
+                    heading.textContent = current.head;
+                    sub.textContent = current.sub;
+                    bar.style.width = current.percent + '%';
+                    bar.setAttribute('aria-valuenow', current.percent);
+                    stageIndex++;
+                } else {
+                    clearInterval(timer);
+                    scanForm.submit();
+                }
+            }, 800);
+        });
+    }
+});
+</script>
+{% endblock %}

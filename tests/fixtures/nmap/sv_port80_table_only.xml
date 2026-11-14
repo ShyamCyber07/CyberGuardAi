@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///C:/Program Files (x86)/Nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.991 scan initiated Sat Nov 14 13:57:30 2026 as: &quot;C:\\Program Files (x86)\\Nmap\\nmap.exe&quot; -Pn -sT -p 80 -sV -&#45;version-light -&#45;host-timeout 60s -oX v80.xml 216.198.79.1 -->
+<nmaprun scanner="nmap" args="&quot;C:\\Program Files (x86)\\Nmap\\nmap.exe&quot; -Pn -sT -p 80 -sV -&#45;version-light -&#45;host-timeout 60s -oX v80.xml 216.198.79.1" start="1794644850" startstr="Sat Nov 14 13:57:30 2026" version="7.991" xmloutputversion="1.05">
+<scaninfo type="connect" protocol="tcp" numservices="1" services="80"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<taskprogress task="Connect Scan" time="1794644851" percent="99.99" remaining="0" etc="1794644851"/>
+<host starttime="1794644851" endtime="1794644864"><status state="up" reason="user-set" reason_ttl="0"/>
+<address addr="216.198.79.1" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports><port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="http" servicefp="SF-Port80-TCP:V=7.991%I=2%D=11/14%Time=6AF81B79%P=i686-pc-windows-windows%r(GetRequest,8A,&quot;HTTP/1\.0\x20308\x20Permanent\x20Redirect\r\nContent-Type:\x20text/plain\r\nLocation:\x20https:///\r\nRefresh:\x200;url=https:///\r\nserver:\x20Vercel\r\n\r\nRedirecting\.\.\.&quot;)%r(HTTPOptions,8A,&quot;HTTP/1\.0\x20308\x20Permanent\x20Redirect\r\nContent-Type:\x20text/plain\r\nLocation:\x20https:///\r\nRefresh:\x200;url=https:///\r\nserver:\x20Vercel\r\n\r\nRedirecting\.\.\.&quot;)%r(FourOhFourRequest,D0,&quot;HTTP/1\.0\x20308\x20Permanent\x20Redirect\r\nContent-Type:\x20text/plain\r\nLocation:\x20https:///nice%20ports%2C/Tri%6Eity\.txt%2ebak\r\nRefresh:\x200;url=https:///nice%20ports%2C/Tri%6Eity\.txt%2ebak\r\nserver:\x20Vercel\r\n\r\nRedirecting\.\.\.&quot;);" method="table" conf="3"/></port>
+</ports>
+<times srtt="128000" rttvar="128000" to="640000"/>
+</host>
+<runstats><finished time="1794644864" timestr="Sat Nov 14 13:57:44 2026" summary="Nmap done at Sat Nov 14 13:57:44 2026; 1 IP address (1 host up) scanned in 13.16 seconds" elapsed="13.16" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>

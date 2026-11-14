@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Password Security Audit & Vault - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+
+                <span class="sidebar-category">Intelligence</span>
+                <a href="{{ url_for('assistant.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-robot text-purple"></i>
+                    <span>AI Copilot</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+                
+                <span class="sidebar-category">System</span>
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-nav-link">
+                    <i class="bi bi-person-gear"></i>
+                    <span>Profile & Keys</span>
+                </a>
+                {% if current_user.role == 'admin' %}
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span class="text-danger fw-semibold">Admin Console</span>
+                </a>
+                {% endif %}
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-white fw-bold fs-7 text-uppercase font-monospace">{{ current_user.role }}</span>
+                    <span class="badge bg-emerald-transparent text-emerald fs-9 px-2 py-0.5 rounded-pill">AUTHENTICATED</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot"></span>
+                    <span class="text-cyan font-monospace fs-8 text-uppercase tracking-wider fw-bold">Credential Auditing & Cryptography</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Password Security Center & Vault</h1>
+                <p class="text-white-50 mb-0 fs-7">Evaluate Shannon Entropy metrics, generate high-security credentials, and store encrypted secrets.</p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Left Side: Analyzer & Generator -->
+            <div class="col-lg-6">
+                <!-- Strength Analyzer Card -->
+                <div class="cyber-card p-4 rounded-4 mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom border-secondary">
+                        <i class="bi bi-shield-check text-cyan fs-5"></i>
+                        <h3 class="h6 fw-bold text-white mb-0">Entropy Strength Analyzer</h3>
+                    </div>
+                    
+                    <form method="POST" action="" class="mb-3">
+                        {{ check_form.hidden_tag() }}
+                        <input type="hidden" name="form_type" value="check">
+                        
+                        <div class="mb-3">
+                            <label for="password_input" class="form-label text-white-50 fs-8 font-monospace text-uppercase mb-1">Input Password to Audit</label>
+                            <div class="input-group">
+                                {{ check_form.password(class="form-control font-monospace", id="password_input", placeholder="Enter password to evaluate...", type="password") }}
+                                <button class="btn btn-outline-secondary" type="button" id="toggleCheckVisibility">
+                                    <i class="bi bi-eye" id="checkEyeIcon"></i>
+                                </button>
+                            </div>
+                            {% if check_form.password.errors %}
+                                <div class="text-danger fs-8 mt-1">
+                                    {% for error in check_form.password.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <button type="submit" class="btn btn-emerald w-100 py-2.5 rounded-pill fw-semibold fs-7 d-flex align-items-center justify-content-center gap-2">
+                            <i class="bi bi-activity"></i>
+                            <span>Calculate Shannon Entropy</span>
+                        </button>
+                    </form>
+
+                    <!-- Real-Time Metrics Output -->
+                    {% if analysis %}
+                        <div class="mt-4 p-3 rounded-3 border border-secondary" style="background: rgba(4, 7, 14, 0.8);">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-white-50 fs-8 font-monospace">SHANNON ENTROPY:</span>
+                                <span class="badge bg-{{ analysis.badge }}-transparent text-{{ analysis.badge }} text-uppercase font-monospace fs-8">
+                                    {{ analysis.strength }} ({{ analysis.entropy }} bits)
+                                </span>
+                            </div>
+                            
+                            <!-- Entropy Meter bar -->
+                            {% set bar_percent = [analysis.entropy * 0.8, 100]|min %}
+                            <div class="progress-cyber mb-3" style="height: 8px;">
+                                <div class="progress-bar bg-{{ analysis.badge }}" role="progressbar" style="width: {{ bar_percent }}%; height: 100%; transition: width 0.6s ease;" aria-valuenow="{{ analysis.entropy }}" aria-valuemin="0" aria-valuemax="120"></div>
+                            </div>
+                            
+                            <!-- Detailed character counts -->
+                            <div class="row g-2 text-center text-white-50 fs-8 border-top border-secondary pt-3 mt-2 font-monospace">
+                                <div class="col-3">
+                                    <span class="d-block text-white fw-bold">{{ analysis.length }}</span>
+                                    <span>Length</span>
+                                </div>
+                                <div class="col-3">
+                                    <span class="d-block text-{{ 'emerald' if analysis.has_upper else 'danger' }}"><i class="bi bi-{{ 'check-circle' if analysis.has_upper else 'x-circle' }}"></i></span>
+                                    <span>A-Z</span>
+                                </div>
+                                <div class="col-3">
+                                    <span class="d-block text-{{ 'emerald' if analysis.has_digit else 'danger' }}"><i class="bi bi-{{ 'check-circle' if analysis.has_digit else 'x-circle' }}"></i></span>
+                                    <span>0-9</span>
+                                </div>
+                                <div class="col-3">
+                                    <span class="d-block text-{{ 'emerald' if analysis.has_symbol else 'danger' }}"><i class="bi bi-{{ 'check-circle' if analysis.has_symbol else 'x-circle' }}"></i></span>
+                                    <span>Symbols</span>
+                                </div>
+                            </div>
+
+                            <!-- Suggestions list -->
+                            {% if analysis.suggestions %}
+                                <div class="mt-3 pt-2.5 border-top border-secondary">
+                                    <span class="d-block text-warning fw-semibold fs-8 mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Security Hardening Advice:</span>
+                                    <ul class="list-unstyled mb-0 fs-8 text-white-50">
+                                        {% for suggestion in analysis.suggestions %}
+                                            <li class="mb-1"><i class="bi bi-arrow-right-short text-warning me-1"></i>{{ suggestion }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% else %}
+                                <div class="mt-3 pt-2.5 border-top border-secondary text-center text-emerald fs-8 font-monospace">
+                                    <i class="bi bi-shield-fill-check me-1"></i>Military Grade Entropy. Password complies with high-assurance standards.
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Password Generator Card -->
+                <div class="cyber-card p-4 rounded-4">
+                    <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom border-secondary">
+                        <i class="bi bi-cpu-fill text-cyan fs-5"></i>
+                        <h3 class="h6 fw-bold text-white mb-0">Cryptographic Credential Generator</h3>
+                    </div>
+                    
+                    <form method="POST" action="">
+                        {{ gen_form.hidden_tag() }}
+                        <input type="hidden" name="form_type" value="generate">
+                        
+                        <div class="row g-3 mb-3">
+                            <!-- Length -->
+                            <div class="col-md-6">
+                                <label for="length_input" class="form-label text-white-50 fs-8 font-monospace text-uppercase">Length (8-64)</label>
+                                {{ gen_form.length(class="form-control font-monospace", id="length_input", type="number", min="8", max="64") }}
+                            </div>
+                            
+                            <!-- Parameters checkboxes -->
+                            <div class="col-md-6 d-flex flex-column justify-content-center">
+                                <div class="form-check fs-8">
+                                    {{ gen_form.use_upper(class="form-check-input", id="use_upper") }}
+                                    <label class="form-check-label text-white-50" for="use_upper">Include Uppercase (A-Z)</label>
+                                </div>
+                                <div class="form-check fs-8 mt-1">
+                                    {{ gen_form.use_lower(class="form-check-input", id="use_lower") }}
+                                    <label class="form-check-label text-white-50" for="use_lower">Include Lowercase (a-z)</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6 d-flex flex-column justify-content-center">
+                                <div class="form-check fs-8">
+                                    {{ gen_form.use_digits(class="form-check-input", id="use_digits") }}
+                                    <label class="form-check-label text-white-50" for="use_digits">Include Numbers (0-9)</label>
+                                </div>
+                                <div class="form-check fs-8 mt-1">
+                                    {{ gen_form.use_symbols(class="form-check-input", id="use_symbols") }}
+                                    <label class="form-check-label text-white-50" for="use_symbols">Include Special Symbols (!@#$)</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Submit Generation -->
+                        <div class="d-grid mb-3">
+                            <button type="submit" name="action" value="generate" class="btn btn-outline-emerald py-2 rounded-pill fw-semibold fs-7">
+                                <i class="bi bi-arrow-repeat me-1.5"></i>Generate Secure Credential
+                            </button>
+                        </div>
+
+                        <!-- Generated Display Output -->
+                        {% if generated_password or gen_form.generated_password_val.data %}
+                            {% set current_val = generated_password or gen_form.generated_password_val.data %}
+                            <div class="mt-4 p-3 rounded-3 border border-secondary" style="background: rgba(4, 7, 14, 0.8);">
+                                <span class="d-block text-white-50 fs-8 font-monospace mb-2 text-uppercase">Generated Credential:</span>
+                                
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control font-monospace text-cyan fw-bold" id="generatedPassword" value="{{ current_val }}" readonly>
+                                    <button class="btn btn-emerald px-3" type="button" id="copyPasswordBtn" title="Copy to clipboard">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Optional Vault Save options -->
+                                <div class="border-top border-secondary pt-3 mt-3">
+                                    <div class="d-flex align-items-center gap-1.5 mb-2">
+                                        <i class="bi bi-safe-fill text-cyan"></i>
+                                        <h4 class="fs-8 text-white fw-bold mb-0 text-uppercase font-monospace">Store in Encrypted Vault</h4>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="label" class="form-label text-white-50 fs-8 font-monospace">Label (e.g. Production Cluster SSH)</label>
+                                        {{ gen_form.label(class="form-control font-monospace fs-8", id="label", placeholder="e.g. Database Master Key...") }}
+                                    </div>
+                                    
+                                    <div class="d-grid">
+                                        <button type="submit" name="action" value="save" class="btn btn-emerald py-2 rounded-pill fw-semibold fs-7">
+                                            <i class="bi bi-shield-lock-fill me-1.5"></i>Save to Encrypted Vault
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Side: Vault History -->
+            <div class="col-lg-6">
+                <div class="cyber-card p-4 rounded-4 h-100 d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-safe2 text-emerald fs-5"></i>
+                            <h3 class="h6 fw-bold text-white mb-0">Encrypted Secret Vault</h3>
+                        </div>
+                        <span class="badge bg-emerald-transparent text-emerald font-monospace fs-9">AES-256 ENCRYPTED</span>
+                    </div>
+                    
+                    {% if history %}
+                        <div class="table-responsive flex-grow-1">
+                            <table class="table table-cyber align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Label</th>
+                                        <th scope="col">Secret Key</th>
+                                        <th scope="col" class="text-end">Purge</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in history %}
+                                    <tr>
+                                        <td class="fw-semibold text-white fs-8">{{ item.label }}</td>
+                                        <td class="font-monospace fs-8">
+                                            <span id="pwdText-{{ item.uuid }}" class="d-none text-cyan">{{ item.decrypted_password }}</span>
+                                            <span id="pwdMask-{{ item.uuid }}" class="text-white-50">••••••••••••••••</span>
+                                            <button class="btn btn-link btn-sm text-cyan p-0 ms-2" onclick="toggleVaultVisibility('{{ item.uuid }}')" title="Toggle visibility">
+                                                <i class="bi bi-eye-slash-fill" id="pwdEye-{{ item.uuid }}"></i>
+                                            </button>
+                                        </td>
+                                        <td class="text-end">
+                                            <form method="POST" action="{{ url_for('password_security.delete_password', uuid=item.uuid) }}" onsubmit="return confirm('Purge this credential from the encrypted vault?');">
+                                                <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
+                                                    <i class="bi bi-trash-fill fs-8"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="p-5 text-center my-auto">
+                            <div class="feature-icon mx-auto mb-3" style="background: rgba(255, 255, 255, 0.04);">
+                                <i class="bi bi-safe-fill text-white-50 fs-3"></i>
+                            </div>
+                            <h4 class="text-white fw-bold mb-1">Vault Storage is Empty</h4>
+                            <p class="text-white-50 fs-8 mb-0">Credentials generated on the left can be securely encrypted and saved here using AES cipher blocks.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const pwdInput = document.getElementById('password_input');
+    const toggleCheckBtn = document.getElementById('toggleCheckVisibility');
+    const checkEyeIcon = document.getElementById('checkEyeIcon');
+    
+    if (toggleCheckBtn && pwdInput) {
+        toggleCheckBtn.addEventListener('click', () => {
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                checkEyeIcon.classList.replace('bi-eye', 'bi-eye-slash');
+            } else {
+                pwdInput.type = 'password';
+                checkEyeIcon.classList.replace('bi-eye-slash', 'bi-eye');
+            }
+        });
+    }
+
+    const copyBtn = document.getElementById('copyPasswordBtn');
+    const genPwdInput = document.getElementById('generatedPassword');
+    if (copyBtn && genPwdInput) {
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(genPwdInput.value).then(() => {
+                const icon = copyBtn.querySelector('i');
+                icon.classList.replace('bi-clipboard', 'bi-check2');
+                copyBtn.classList.replace('btn-emerald', 'btn-success');
+                setTimeout(() => {
+                    icon.classList.replace('bi-check2', 'bi-clipboard');
+                    copyBtn.classList.replace('btn-success', 'btn-emerald');
+                }, 1500);
+            });
+        });
+    }
+});
+
+function toggleVaultVisibility(uuid) {
+    const textSpan = document.getElementById(`pwdText-${uuid}`);
+    const maskSpan = document.getElementById(`pwdMask-${uuid}`);
+    const eyeIcon = document.getElementById(`pwdEye-${uuid}`);
+    
+    if (textSpan.classList.contains('d-none')) {
+        textSpan.classList.remove('d-none');
+        maskSpan.classList.add('d-none');
+        eyeIcon.classList.replace('bi-eye-slash-fill', 'bi-eye-fill');
+    } else {
+        textSpan.classList.add('d-none');
+        maskSpan.classList.remove('d-none');
+        eyeIcon.classList.replace('bi-eye-fill', 'bi-eye-slash-fill');
+    }
+}
+</script>
+{% endblock %}

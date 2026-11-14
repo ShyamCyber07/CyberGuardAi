@@ -1,0 +1,941 @@
+/* ==========================================================================
+   CyberGuard AI - Premium Bluish & White Glassmorphism Design System
+   "Aero Lumina Glass" - Crystalline Azure, Frosted White & Deep Sapphire SOC
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   01. DESIGN TOKENS & SYSTEM VARIABLES
+   -------------------------------------------------------------------------- */
+:root {
+    /* Canvas & Glassmorphic Surfaces */
+    --bg-canvas: #f0f7ff;
+    --bg-glass-card: rgba(255, 255, 255, 0.80);
+    --bg-glass-card-hover: rgba(255, 255, 255, 0.92);
+    --bg-glass-elevated: rgba(255, 255, 255, 0.95);
+    --bg-glass-subtle: rgba(240, 249, 255, 0.75);
+    --bg-glass-active: rgba(224, 242, 254, 0.85);
+    --bg-sidebar: rgba(255, 255, 255, 0.82);
+    --bg-terminal: rgba(248, 250, 252, 0.92);
+
+    /* Bluish & White Glass Borders */
+    --glass-border-pure: rgba(255, 255, 255, 0.95);
+    --glass-border-azure: rgba(186, 230, 253, 0.85);
+    --glass-border-subtle: rgba(224, 242, 254, 0.75);
+    --glass-border-glow: rgba(2, 132, 199, 0.45);
+
+    /* Shadows & Crystalline Specular Reflections */
+    --glass-shadow: 
+        0 10px 30px -5px rgba(2, 132, 199, 0.08),
+        0 4px 12px 0 rgba(0, 0, 0, 0.02),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+    --glass-shadow-hover: 
+        0 20px 45px -8px rgba(2, 132, 199, 0.16),
+        0 6px 18px 0 rgba(0, 0, 0, 0.03),
+        inset 0 1px 1px 0 #ffffff;
+    --glass-shadow-active: 
+        0 4px 15px -2px rgba(2, 132, 199, 0.12),
+        inset 0 1px 2px rgba(0, 0, 0, 0.03);
+
+    /* Bluish Palette Spectrum */
+    --azure-50: #f0f9ff;
+    --azure-100: #e0f2fe;
+    --azure-200: #bae6fd;
+    --azure-300: #7dd3fc;
+    --azure-400: #38bdf8;
+    --azure-500: #0ea5e9;
+    --azure-600: #0284c7;
+    --azure-700: #0369a1;
+    --azure-800: #075985;
+    --azure-900: #0c4a6e;
+
+    --sapphire-gradient: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+    --cyan-gradient: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+    --ai-violet-gradient: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%);
+
+    /* Primary System Accents */
+    --cyber-cyan: #0284c7;
+    --cyber-cyan-glow: rgba(2, 132, 199, 0.35);
+    --cyber-cyan-subtle: rgba(2, 132, 199, 0.1);
+
+    --cyber-emerald: #059669;
+    --cyber-emerald-glow: rgba(5, 150, 105, 0.3);
+    --cyber-emerald-subtle: rgba(5, 150, 105, 0.1);
+    --emerald: #059669;
+    --emerald-transparent: rgba(5, 150, 105, 0.12);
+
+    --cyber-teal: #0891b2;
+    --teal: #0d9488;
+    --teal-transparent: rgba(13, 148, 136, 0.12);
+
+    --cyber-violet: #7c3aed;
+    --cyber-violet-glow: rgba(124, 58, 237, 0.3);
+    --cyber-violet-subtle: rgba(124, 58, 237, 0.1);
+    --purple: #7c3aed;
+    --purple-transparent: rgba(124, 58, 237, 0.12);
+
+    /* Threat Status Telemetry (Light Glass Optimal Legibility) */
+    --threat-critical: #dc2626;
+    --threat-critical-glow: rgba(220, 38, 38, 0.25);
+    --threat-critical-subtle: rgba(239, 68, 68, 0.12);
+
+    --threat-high: #d97706;
+    --threat-high-glow: rgba(217, 119, 6, 0.25);
+    --threat-high-subtle: rgba(245, 158, 11, 0.12);
+
+    --threat-medium: #0284c7;
+    --threat-medium-glow: rgba(2, 132, 199, 0.25);
+    --threat-medium-subtle: rgba(2, 132, 199, 0.12);
+
+    --threat-low: #059669;
+    --threat-low-glow: rgba(5, 150, 105, 0.25);
+    --threat-low-subtle: rgba(5, 150, 105, 0.12);
+
+    --threat-info: #475569;
+    --threat-info-subtle: rgba(71, 85, 105, 0.12);
+
+    /* Typography & Contrast */
+    --text-headline: #0f172a;  /* Midnight Navy */
+    --text-body: #1e293b;      /* Deep Slate */
+    --text-muted: #64748b;     /* Muted Blue-Gray */
+    --text-dim: #94a3b8;       /* Subtle Slate */
+
+    --font-heading: 'Outfit', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Space Mono', SFMono-Regular, Menlo, monospace;
+}
+
+/* --------------------------------------------------------------------------
+   02. BASE RESETS & AMBIENT GLASS CANVAS
+   -------------------------------------------------------------------------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    color-scheme: light;
+}
+
+body {
+    background: 
+        radial-gradient(circle at 10% 15%, rgba(186, 230, 253, 0.55) 0%, transparent 45%),
+        radial-gradient(circle at 90% 20%, rgba(224, 242, 254, 0.65) 0%, transparent 50%),
+        radial-gradient(circle at 50% 65%, rgba(238, 242, 255, 0.7) 0%, transparent 55%),
+        radial-gradient(circle at 80% 85%, rgba(199, 210, 254, 0.45) 0%, transparent 45%),
+        linear-gradient(135deg, #f0f7ff 0%, #e0f2fe 35%, #eef6ff 70%, #f8fafc 100%) !important;
+    background-attachment: fixed !important;
+    color: var(--text-body);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    position: relative;
+    min-height: 100vh;
+}
+
+/* Universal Link Styling - Prevents unstyled default browser blue underlined links */
+a {
+    color: var(--azure-600);
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+}
+
+a:hover {
+    color: var(--azure-800);
+    text-decoration: none !important;
+}
+
+/* Ambient Floating Glass Glow Orbs (Pure Bluish & White Depth) */
+.glass-ambient-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+    animation: orbPulse 14s ease-in-out infinite alternate;
+}
+.glass-ambient-orb-1 {
+    width: 480px;
+    height: 480px;
+    top: -120px;
+    left: -100px;
+    background: rgba(56, 189, 248, 0.28);
+}
+.glass-ambient-orb-2 {
+    width: 520px;
+    height: 520px;
+    bottom: -100px;
+    right: -100px;
+    background: rgba(37, 99, 235, 0.22);
+    animation-delay: -7s;
+}
+.glass-ambient-orb-3 {
+    width: 380px;
+    height: 380px;
+    top: 35%;
+    left: 40%;
+    background: rgba(147, 197, 253, 0.22);
+    animation-delay: -3.5s;
+}
+
+@keyframes orbPulse {
+    0% { transform: scale(1) translate(0, 0); }
+    50% { transform: scale(1.12) translate(25px, -15px); }
+    100% { transform: scale(0.95) translate(-20px, 20px); }
+}
+
+/* Ensure foreground content stacks above ambient orbs */
+header, main, footer, .dashboard-wrapper, .container, .container-fluid {
+    position: relative;
+    z-index: 1;
+}
+
+/* --------------------------------------------------------------------------
+   03. HIGH CONTRAST TYPOGRAPHY ON WHITE GLASS
+   -------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--text-headline) !important;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+}
+
+.fw-extrabold { font-weight: 800 !important; }
+.fw-bold { font-weight: 700 !important; }
+.fw-semibold { font-weight: 600 !important; }
+.font-monospace { font-family: var(--font-mono) !important; }
+
+/* Text Color Classes Adaptations */
+.text-cyan { color: var(--azure-600) !important; }
+.text-emerald { color: var(--cyber-emerald) !important; }
+.text-purple { color: var(--cyber-violet) !important; }
+.text-danger { color: var(--threat-critical) !important; }
+.text-warning { color: var(--threat-high) !important; }
+.text-muted { color: var(--text-muted) !important; }
+
+/* In a bluish & white glass theme, adapt .text-white to high contrast dark navy,
+   while preserving pure white inside colored buttons, badges, or terminal */
+.text-white:not(.btn *):not(.btn):not(.badge):not(.badge *):not(.alert *):not(.bg-primary *):not(.bg-danger *):not(.bg-dark *):not(.chat-bubble-user *):not(.terminal-window *):not(.terminal-header *) {
+    color: var(--text-headline) !important;
+}
+
+.text-white-50:not(.btn *):not(.btn):not(.badge *):not(.alert *):not(.chat-bubble-user *):not(.terminal-window *):not(.terminal-header *) {
+    color: var(--text-muted) !important;
+}
+
+.border-secondary {
+    border-color: rgba(186, 230, 253, 0.75) !important;
+}
+
+/* Gradient Text Shimmer */
+.gradient-text {
+    background: linear-gradient(135deg, #0284c7 0%, #2563eb 60%, #0ea5e9 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+}
+
+/* --------------------------------------------------------------------------
+   04. NAVIGATION BAR & STATUS TICKER
+   -------------------------------------------------------------------------- */
+.navbar-cyber {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+    border-bottom: 1px solid rgba(186, 230, 253, 0.8) !important;
+    box-shadow: 0 4px 25px -2px rgba(2, 132, 199, 0.07) !important;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    transition: all 0.3s ease;
+}
+
+.brand-icon-shield {
+    color: var(--azure-600);
+}
+
+.brand-logo-text .badge {
+    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.nav-link-cyber {
+    color: #334155 !important;
+    font-weight: 500;
+    font-size: 0.875rem;
+    border-radius: 9999px;
+    padding: 0.45rem 1rem !important;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.nav-link-cyber:hover,
+.nav-link-cyber.active {
+    color: var(--azure-600) !important;
+    background: rgba(2, 132, 199, 0.08) !important;
+}
+
+.soc-status-ticker {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(186, 230, 253, 0.95);
+    box-shadow: 0 2px 10px rgba(2, 132, 199, 0.05);
+    border-radius: 9999px;
+    padding: 0.35rem 1.1rem;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--azure-800);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Pulsing Status Beacon */
+.beacon-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--azure-500);
+    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7);
+    animation: beaconPulse 2s infinite;
+    display: inline-block;
+}
+
+@keyframes beaconPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(14, 165, 233, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(14, 165, 233, 0);
+    }
+}
+
+.navbar-toggler {
+    border: 1px solid rgba(186, 230, 253, 0.9) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 0.65rem !important;
+    padding: 0.4rem 0.65rem !important;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08);
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2) !important;
+}
+
+/* --------------------------------------------------------------------------
+   05. DASHBOARD LAYOUT & VERTICAL SIDEBAR
+   -------------------------------------------------------------------------- */
+.dashboard-wrapper {
+    display: flex;
+    width: 100%;
+    min-height: calc(100vh - 68px);
+    position: relative;
+}
+
+.sidebar {
+    width: 270px;
+    min-width: 270px;
+    max-width: 270px;
+    background: var(--bg-sidebar) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border-right: 1px solid rgba(186, 230, 253, 0.8) !important;
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: sticky;
+    top: 68px;
+    height: calc(100vh - 68px);
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 4px 0 20px rgba(2, 132, 199, 0.04);
+}
+
+.sidebar-category {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding: 0.85rem 0.75rem 0.35rem;
+    font-family: var(--font-mono);
+}
+
+.sidebar-category:first-of-type {
+    padding-top: 0.2rem;
+}
+
+.sidebar-nav-link {
+    display: flex !important;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.75rem;
+    color: #334155 !important;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    margin-bottom: 0.25rem;
+    border: 1px solid transparent;
+}
+
+.sidebar-nav-link i {
+    font-size: 1.15rem;
+    width: 1.25rem;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--azure-600);
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-nav-link:hover {
+    color: var(--azure-600) !important;
+    background: rgba(2, 132, 199, 0.08) !important;
+    border-color: rgba(186, 230, 253, 0.6) !important;
+    transform: translateX(4px);
+}
+
+.sidebar-nav-link:hover i {
+    transform: scale(1.15);
+    color: var(--azure-700);
+}
+
+.sidebar-nav-link.active {
+    color: var(--azure-600) !important;
+    font-weight: 600;
+    background: linear-gradient(135deg, rgba(2, 132, 199, 0.14) 0%, rgba(37, 99, 235, 0.08) 100%) !important;
+    border: 1px solid rgba(186, 230, 253, 0.95) !important;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08) !important;
+}
+
+.sidebar-nav-link.active i {
+    color: var(--azure-600);
+    transform: scale(1.1);
+}
+
+.clearance-panel {
+    margin-top: 1.5rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.85rem;
+    background: rgba(240, 249, 255, 0.85) !important;
+    border: 1px solid rgba(186, 230, 253, 0.9) !important;
+    box-shadow: 0 4px 15px rgba(2, 132, 199, 0.05);
+}
+
+.dashboard-content {
+    flex: 1;
+    padding: 2rem 2.5rem;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   06. GLASSMORPHIC CARDS (.cyber-card) & SURFACES
+   -------------------------------------------------------------------------- */
+.cyber-card {
+    background: var(--bg-glass-card) !important;
+    backdrop-filter: blur(20px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+    border: 1px solid var(--glass-border-pure) !important;
+    border-top: 1px solid #ffffff !important;
+    box-shadow: var(--glass-shadow) !important;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+    position: relative;
+    border-radius: 1.25rem !important;
+}
+
+.cyber-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+    pointer-events: none;
+    border-radius: 1.25rem 1.25rem 0 0;
+}
+
+.cyber-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--azure-200) !important;
+    box-shadow: var(--glass-shadow-hover) !important;
+}
+
+/* Feature Icon Circles */
+.feature-icon {
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: rgba(224, 242, 254, 0.7) !important;
+    border: 1px solid rgba(186, 230, 253, 0.9) !important;
+    box-shadow: 0 4px 15px rgba(2, 132, 199, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   07. RADAR HUD & SCANNING RINGS ANIMATIONS
+   -------------------------------------------------------------------------- */
+.radar-ring-wrapper {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.radar-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(2, 132, 199, 0.35);
+}
+
+.radar-ring-1 {
+    width: 100%;
+    height: 100%;
+    animation: radarRingPulse 2.8s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+.radar-ring-2 {
+    width: 68%;
+    height: 68%;
+}
+
+.radar-ring-3 {
+    width: 36%;
+    height: 36%;
+}
+
+.radar-sweep-center {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(2, 132, 199, 0.12);
+    border: 1px solid rgba(2, 132, 199, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--azure-600);
+    z-index: 2;
+    box-shadow: 0 0 15px rgba(2, 132, 199, 0.2);
+}
+
+@keyframes radarRingPulse {
+    0% { transform: scale(0.85); opacity: 0.9; }
+    50% { transform: scale(1.08); opacity: 0.4; }
+    100% { transform: scale(0.85); opacity: 0.9; }
+}
+
+/* --------------------------------------------------------------------------
+   08. BUTTONS & CONTROLS (BLUISH & WHITE GLASS)
+   -------------------------------------------------------------------------- */
+.btn-emerald,
+.btn-cyan,
+.btn-primary {
+    background: var(--sapphire-gradient) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.35) !important;
+    font-weight: 600 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.btn-emerald:hover,
+.btn-cyan:hover,
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px -4px rgba(37, 99, 235, 0.45) !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-emerald,
+.btn-outline-cyan,
+.btn-outline-primary {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(2, 132, 199, 0.4) !important;
+    color: var(--azure-600) !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08) !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-outline-emerald:hover,
+.btn-outline-cyan:hover,
+.btn-outline-primary:hover {
+    background: var(--azure-600) !important;
+    color: #ffffff !important;
+    border-color: var(--azure-600) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(2, 132, 199, 0.25) !important;
+}
+
+.btn-cyber-violet {
+    background: var(--ai-violet-gradient) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 8px 20px -4px rgba(124, 58, 237, 0.35) !important;
+    font-weight: 600 !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-cyber-violet:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px -4px rgba(124, 58, 237, 0.45) !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-secondary {
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(186, 230, 253, 0.8) !important;
+    color: var(--text-body) !important;
+}
+
+.btn-outline-secondary:hover {
+    background: rgba(240, 249, 255, 0.95) !important;
+    color: var(--azure-700) !important;
+}
+
+/* --------------------------------------------------------------------------
+   09. FORM CONTROLS & GLASS INPUT FIELDS
+   -------------------------------------------------------------------------- */
+.form-control,
+.form-select {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(186, 230, 253, 0.85) !important;
+    color: var(--text-headline) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.65rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background: #ffffff !important;
+    border-color: var(--azure-500) !important;
+    box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15), 0 4px 12px rgba(2, 132, 199, 0.08) !important;
+    color: var(--text-headline) !important;
+}
+
+.form-control::placeholder {
+    color: var(--text-dim) !important;
+}
+
+.form-control-lg {
+    font-size: 1.05rem;
+    padding: 0.85rem 1.25rem;
+}
+
+.input-group-text {
+    background: rgba(240, 249, 255, 0.85) !important;
+    border: 1px solid rgba(186, 230, 253, 0.85) !important;
+    color: var(--azure-700) !important;
+    border-radius: 0.75rem;
+}
+
+/* Form Check & Switches */
+.form-check-input {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(186, 230, 253, 0.9);
+}
+
+.form-check-input:checked {
+    background-color: var(--azure-600) !important;
+    border-color: var(--azure-600) !important;
+    box-shadow: 0 0 8px rgba(2, 132, 199, 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   10. BADGES & STATUS INDICATORS
+   -------------------------------------------------------------------------- */
+.badge {
+    font-weight: 600;
+    padding: 0.35em 0.75em;
+    border-radius: 9999px;
+    letter-spacing: 0.02em;
+}
+
+.bg-cyan-transparent {
+    background: rgba(2, 132, 199, 0.12) !important;
+    color: var(--azure-700) !important;
+    border: 1px solid rgba(2, 132, 199, 0.25) !important;
+}
+
+.bg-emerald-transparent {
+    background: rgba(5, 150, 105, 0.12) !important;
+    color: var(--cyber-emerald) !important;
+    border: 1px solid rgba(5, 150, 105, 0.25) !important;
+}
+
+.bg-purple-transparent {
+    background: rgba(124, 58, 237, 0.12) !important;
+    color: var(--cyber-violet) !important;
+    border: 1px solid rgba(124, 58, 237, 0.25) !important;
+}
+
+.bg-warning-transparent {
+    background: rgba(217, 119, 6, 0.12) !important;
+    color: var(--threat-high) !important;
+    border: 1px solid rgba(217, 119, 6, 0.25) !important;
+}
+
+.bg-danger-transparent {
+    background: rgba(220, 38, 38, 0.12) !important;
+    color: var(--threat-critical) !important;
+    border: 1px solid rgba(220, 38, 38, 0.25) !important;
+}
+
+/* --------------------------------------------------------------------------
+   11. CRYSTALLINE TERMINAL WINDOW (LANDING PAGE)
+   -------------------------------------------------------------------------- */
+.terminal-window {
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 20px 50px -10px rgba(2, 132, 199, 0.15), inset 0 1px 1px #fff !important;
+    border-radius: 1.25rem;
+    overflow: hidden;
+}
+
+.terminal-header {
+    background: rgba(240, 249, 255, 0.95) !important;
+    border-bottom: 1px solid rgba(186, 230, 253, 0.75) !important;
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.terminal-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.term-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.term-dot-red { background-color: #ef4444; }
+.term-dot-yellow { background-color: #f59e0b; }
+.term-dot-green { background-color: #10b981; }
+
+.terminal-title {
+    color: var(--azure-800) !important;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.terminal-body {
+    background: rgba(248, 250, 252, 0.85) !important;
+    padding: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    min-height: 220px;
+    color: var(--text-headline) !important;
+}
+
+.term-prompt { color: var(--azure-600) !important; }
+.term-text { color: var(--text-body) !important; }
+.term-success { color: var(--cyber-emerald) !important; font-weight: 600; }
+.term-dim { color: var(--text-muted) !important; }
+
+/* --------------------------------------------------------------------------
+   12. TABLES & HISTORICAL AUDIT REGISTRIES
+   -------------------------------------------------------------------------- */
+.table-cyber {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--text-body);
+}
+
+.table-cyber thead th {
+    background: rgba(240, 249, 255, 0.85) !important;
+    color: var(--azure-800) !important;
+    border-bottom: 2px solid rgba(186, 230, 253, 0.85) !important;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.85rem 1rem;
+}
+
+.table-cyber tbody td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid rgba(224, 242, 254, 0.85);
+    vertical-align: middle;
+}
+
+.table-cyber tbody tr {
+    transition: background 0.2s ease;
+}
+
+.table-cyber tbody tr:hover {
+    background: rgba(224, 242, 254, 0.45) !important;
+}
+
+/* --------------------------------------------------------------------------
+   13. ACCORDIONS & COLLAPSIBLE DETAILS
+   -------------------------------------------------------------------------- */
+.accordion-cyber .accordion-item {
+    background: transparent;
+    border: none;
+    margin-bottom: 0.65rem;
+}
+
+.accordion-cyber .accordion-button {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    color: var(--text-headline) !important;
+    border: 1px solid rgba(186, 230, 253, 0.8) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.85rem 1.15rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.04);
+}
+
+.accordion-cyber .accordion-button:not(.collapsed) {
+    background: rgba(224, 242, 254, 0.65) !important;
+    color: var(--azure-700) !important;
+    border-color: var(--azure-300) !important;
+}
+
+.accordion-cyber .accordion-body {
+    background: rgba(255, 255, 255, 0.75) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(186, 230, 253, 0.65) !important;
+    border-top: none !important;
+    border-radius: 0 0 0.75rem 0.75rem;
+    color: var(--text-body);
+    padding: 1rem 1.25rem;
+}
+
+/* --------------------------------------------------------------------------
+   14. AI ASSISTANT CHAT WINDOW (.chat-bubble)
+   -------------------------------------------------------------------------- */
+.chat-container {
+    height: 520px;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.55) !important;
+    border-radius: 1rem;
+    padding: 1.25rem;
+}
+
+.chat-bubble-user {
+    background: var(--sapphire-gradient) !important;
+    color: #ffffff !important;
+    border-radius: 1.15rem 1.15rem 0.2rem 1.15rem;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25) !important;
+    padding: 0.85rem 1.15rem;
+    max-width: 82%;
+}
+
+.chat-bubble-ai {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(186, 230, 253, 0.85) !important;
+    color: var(--text-headline) !important;
+    border-radius: 1.15rem 1.15rem 1.15rem 0.2rem;
+    box-shadow: 0 4px 15px rgba(2, 132, 199, 0.06) !important;
+    padding: 0.85rem 1.15rem;
+    max-width: 82%;
+}
+
+.chat-chip {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border: 1px solid rgba(186, 230, 253, 0.95) !important;
+    color: var(--azure-700) !important;
+    border-radius: 9999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.chat-chip:hover {
+    background: var(--azure-600) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   15. FOOTER, RESPONSIVE ADAPTATIONS & SCROLLBAR
+   -------------------------------------------------------------------------- */
+footer {
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid rgba(186, 230, 253, 0.8) !important;
+    color: var(--text-muted);
+}
+
+@media (max-width: 991.98px) {
+    .dashboard-wrapper {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+        position: relative;
+        top: 0;
+        height: auto;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(186, 230, 253, 0.8) !important;
+        padding: 1.25rem 1rem;
+    }
+
+    .dashboard-content {
+        padding: 1.5rem 1rem;
+    }
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(240, 249, 255, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(186, 230, 253, 0.9);
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--azure-500);
+}
+
+/* Font sizes helper tokens */
+.fs-7 { font-size: 0.875rem !important; }
+.fs-8 { font-size: 0.8125rem !important; }
+.fs-9 { font-size: 0.75rem !important; }

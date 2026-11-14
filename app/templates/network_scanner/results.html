@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}Network Port Results - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+
+                <span class="sidebar-category">Intelligence</span>
+                <a href="{{ url_for('assistant.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-robot text-purple"></i>
+                    <span>AI Copilot</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+                
+                <span class="sidebar-category">System</span>
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-nav-link">
+                    <i class="bi bi-person-gear"></i>
+                    <span>Profile & Keys</span>
+                </a>
+                {% if current_user.role == 'admin' %}
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span class="text-danger fw-semibold">Admin Console</span>
+                </a>
+                {% endif %}
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-white fw-bold fs-7 text-uppercase font-monospace">{{ current_user.role }}</span>
+                    <span class="badge bg-emerald-transparent text-emerald fs-9 px-2 py-0.5 rounded-pill">AUTHENTICATED</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Results Page Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot"></span>
+                    <span class="text-cyan font-monospace fs-8 text-uppercase tracking-wider fw-bold">// NETWORK TELEMETRY</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Network Audit Results</h1>
+                <p class="text-white-50 mb-0 fs-7">Target Host Endpoint: <code class="text-cyan font-monospace fw-bold fs-6">{{ scan.ip_address }}</code></p>
+            </div>
+            <div class="col-md-5 text-md-end d-flex justify-content-md-end gap-2 align-items-center flex-wrap">
+                <div class="p-2.5 rounded-3 text-start" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                    <span class="d-block text-muted fs-9 font-monospace text-uppercase">OVERALL RISK:</span>
+                    {% set badge_color = 'danger' if scan.risk_level == 'High' else 'warning' if scan.risk_level == 'Medium' else 'secondary' if scan.risk_level == 'Inconclusive' else 'emerald' %}
+                    <span class="text-{{ badge_color }} fs-5 fw-extrabold font-monospace text-uppercase">{{ scan.risk_level }}</span>
+                </div>
+                <div class="p-2.5 rounded-3 text-start" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                    <span class="d-block text-muted fs-9 font-monospace text-uppercase">AUDIT TIME:</span>
+                    <span class="fs-8 font-monospace fw-bold" style="color: #0f172a;">{{ scan.completed_at.strftime('%Y-%m-%d %H:%M UTC') if scan.completed_at else 'Inconclusive' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Port Findings List -->
+            <div class="col-xl-8">
+                <!-- Original Network Scan Summary Card -->
+                <div class="cyber-card p-4 rounded-4 mb-4">
+                    <h3 class="h6 fw-bold text-white mb-3 pb-2 border-bottom border-secondary">
+                        <i class="bi bi-broadcast text-cyan me-2"></i>Original Network Scan Summary
+                    </h3>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled mb-0 fs-7 text-white-50">
+                                <li class="mb-2.5 d-flex justify-content-between align-items-center">
+                                    <span>Target Endpoint:</span>
+                                    <span class="text-white font-monospace fw-semibold">{{ scan.ip_address }}</span>
+                                </li>
+                                <li class="mb-2.5 d-flex justify-content-between align-items-center">
+                                    <span>Scan Profile:</span>
+                                    <span class="text-white font-monospace fs-8">{{ scan.scan_profile }}</span>
+                                </li>
+                                <li class="d-flex justify-content-between align-items-center">
+                                    <span>Risk Assessment:</span>
+                                    {% set badge_color = 'danger' if scan.risk_level == 'High' else 'warning' if scan.risk_level == 'Medium' else 'secondary' if scan.risk_level == 'Inconclusive' else 'emerald' %}
+                                    <span class="text-{{ badge_color }} fw-bold text-uppercase font-monospace">{{ scan.risk_level }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="col-md-6 border-start border-secondary ps-4">
+                            <span class="d-block text-white-50 fs-8 font-monospace text-uppercase tracking-wider mb-2">Service Discovery</span>
+                            <ul class="list-unstyled mb-0 fs-7 text-white-50">
+                                <li class="mb-2.5 d-flex justify-content-between align-items-center">
+                                    <span>Exposed Ports (Open):</span>
+                                    {% set open_ports = [] %}
+                                    {% for r in results if r.state == 'open' %}
+                                        {% set _ = open_ports.append(r) %}
+                                    {% endfor %}
+                                    <span class="text-white font-monospace fw-bold">{{ open_ports|length }}</span>
+                                </li>
+                                <li class="d-flex justify-content-between align-items-center">
+                                    <span>Execution Engine:</span>
+                                    <span class="{% if scan.scanner_mode == 'REAL_NMAP' %}text-emerald{% else %}text-warning{% endif %} font-monospace fs-8 fw-semibold">
+                                        {% if scan.scanner_mode == 'REAL_NMAP' %}REAL NMAP{% else %}SIMULATED ENGINE{% endif %}
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                {% if scan.scanner_mode != 'REAL_NMAP' %}
+                <div class="alert alert-warning py-2.5 px-3 rounded-3 mb-3 fs-8 d-flex align-items-center">
+                    <i class="bi bi-info-circle-fill me-2 fs-6"></i>
+                    <div>
+                        <strong>Simulated Demonstration Mode:</strong> These findings are generated as mock demonstration data. No live network packets or port scans were sent to the target host.
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if scan.status == 'inconclusive' %}
+                <div class="alert alert-secondary py-3 px-3.5 rounded-3 mb-4 fs-8 border-secondary" style="background: rgba(100, 116, 139, 0.15);">
+                    <div class="d-flex align-items-start gap-2.5">
+                        <i class="bi bi-exclamation-octagon-fill text-warning fs-5 mt-0.5"></i>
+                        <div>
+                            <strong class="text-white d-block mb-1">Scan Inconclusive</strong>
+                            <p class="text-white-50 mb-0">The target host did not respond with complete port information or timed out during assessment. No conclusion about network exposure can be drawn. Automated AI Analysis and PDF compliance exports are disabled. Please re-run the scan.</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h3 class="h6 fw-bold text-white mb-0">Evaluated Host Services ({{ results|length }})</h3>
+                </div>
+                
+                {% if results %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for result in results %}
+                            {% set sev_color = 'danger' if result.severity == 'High' else 'warning' if result.severity == 'Medium' else 'emerald' %}
+                            {% set state_badge = 'emerald' if result.state == 'open' else 'warning' if result.state == 'filtered' else 'secondary' %}
+                            
+                            <div class="cyber-card p-3.5 rounded-4">
+                                <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div>
+                                            <span class="text-white-50 fs-9 font-monospace text-uppercase">PORT / PROTOCOL</span>
+                                            <h4 class="fs-6 text-white fw-bold mt-0.5 mb-0 font-monospace">{{ result.port }} <span class="text-cyan text-uppercase fs-7">/ {{ result.protocol }}</span></h4>
+                                        </div>
+                                        <span class="badge bg-{{ state_badge }}-transparent text-{{ state_badge }} font-monospace text-uppercase fs-9 ms-2">{{ result.state }}</span>
+                                    </div>
+                                    <span class="badge bg-{{ sev_color }}-transparent text-{{ sev_color }} font-monospace text-uppercase fs-9">{{ result.severity }} Risk</span>
+                                </div>
+                                
+                                <div class="row g-2 mb-2 fs-8">
+                                    <div class="col-md-6">
+                                        <span class="text-white-50 font-monospace">Service: </span>
+                                        <span class="text-white fw-semibold">{{ result.service_name }}</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-white-50 font-monospace">Banner: </span>
+                                        {% if result.service_version and result.service_version != 'Unknown' %}
+                                            <span class="text-cyan font-monospace fs-9">{{ result.service_version }}</span>
+                                        {% else %}
+                                            <span class="text-white-50 font-monospace fs-9">Unknown / No Banner Detected</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {% if not result.service_version or result.service_version == 'Unknown' %}
+                                <div class="p-2 rounded-2 border border-secondary fs-9 mb-2 font-monospace" style="background: rgba(4, 7, 14, 0.7);">
+                                    <span class="text-cyan">// BANNER TELEMETRY:</span>
+                                    <span class="text-white-50 ms-1">Nmap probe did not identify a specific service version string. This indicates banner suppression or unadvertised version details; it is not a confirmed vulnerability.</span>
+                                </div>
+                                {% endif %}
+                                
+                                {% if result.remediation %}
+                                    <div class="p-2 rounded-2 border border-secondary fs-8" style="background: rgba(4, 7, 14, 0.7);">
+                                        <span class="text-emerald fw-semibold font-monospace fs-9">// REMEDIATION:</span>
+                                        <span class="text-white-50 ms-1">{{ result.remediation }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    {% if scan.status == 'inconclusive' %}
+                    <div class="cyber-card p-5 text-center rounded-4 border-warning">
+                        <div class="feature-icon mx-auto mb-3" style="background: rgba(245, 158, 11, 0.1);">
+                            <i class="bi bi-exclamation-triangle-fill text-warning fs-3"></i>
+                        </div>
+                        <h4 class="text-white fw-bold mb-1">Scan Inconclusive</h4>
+                        <p class="text-white-50 fs-8 mb-0">Scan did not complete - no conclusion about exposure can be drawn. Re-run the scan.</p>
+                    </div>
+                    {% else %}
+                    <div class="cyber-card p-5 text-center rounded-4">
+                        <div class="feature-icon mx-auto mb-3" style="background: rgba(16, 244, 156, 0.1);">
+                            <i class="bi bi-shield-fill-check text-emerald fs-3"></i>
+                        </div>
+                        <h4 class="text-white fw-bold mb-1">No Active Services Discovered</h4>
+                        <p class="text-white-50 fs-8 mb-0">The scanner did not detect any open ports or listening daemon services on the target host.</p>
+                    </div>
+                    {% endif %}
+                {% endif %}
+
+                <!-- AI Copilot Synthesis Card -->
+                {% if ai_data %}
+                    <div class="cyber-card p-4 rounded-4 mt-4" style="border-top: 1px solid rgba(139, 92, 246, 0.4) !important;">
+                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-robot text-purple fs-5"></i>
+                                <h3 class="h6 fw-bold text-white mb-0">AI Security Analysis <span class="text-white-50 fs-9 fw-normal">(AI-Generated)</span></h3>
+                            </div>
+                            <span class="badge bg-purple-transparent text-purple font-monospace fs-9 rounded-pill px-2.5 py-1">
+                                {{ scan.ai_response.model_used }}
+                            </span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <span class="d-block text-white-50 fs-9 font-monospace text-uppercase">OVERALL AI RISK LEVEL:</span>
+                            {% set risk_color = 'danger' if ai_data.overall_risk.lower() == 'critical' or ai_data.overall_risk.lower() == 'high' else 'warning' if ai_data.overall_risk.lower() == 'medium' else 'cyan' if ai_data.overall_risk.lower() == 'low' else 'emerald' %}
+                            <span class="badge bg-{{ risk_color }}-transparent text-{{ risk_color }} text-uppercase fs-8 font-monospace mt-1">{{ ai_data.overall_risk }}</span>
+                        </div>
+
+                        <div class="mb-3 p-3 rounded-3" style="background: rgba(139, 92, 246, 0.04); border: 1px solid rgba(139, 92, 246, 0.2);">
+                            <span class="d-block text-purple fs-8 font-monospace fw-semibold text-uppercase mb-1">Executive Summary</span>
+                            <p class="text-white fs-7 mb-0">{{ ai_data.executive_summary }}</p>
+                        </div>
+                        
+                        {% if ai_data.recommendations %}
+                            <div class="mb-3">
+                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase mb-2">Recommendations</span>
+                                <ul class="list-unstyled mb-0">
+                                    {% for rec in ai_data.recommendations %}
+                                        <li class="mb-1.5 d-flex align-items-start gap-2 fs-7 text-white-50 font-monospace">
+                                            <i class="bi bi-lightbulb-fill text-cyan mt-1 fs-8"></i>
+                                            <span>{{ rec }}</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+
+                        {% if ai_data.remediation_priority %}
+                            <div>
+                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase mb-2">Remediation Priority Actions</span>
+                                <div class="row g-2">
+                                    {% for item in ai_data.remediation_priority %}
+                                        {% set prio_color = 'danger' if item.priority.lower() == 'critical' or item.priority.lower() == 'high' else 'warning' if item.priority.lower() == 'medium' else 'cyan' %}
+                                        <div class="col-md-6">
+                                            <div class="p-2.5 rounded-3 h-100" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                                                <div class="d-flex justify-content-between mb-1">
+                                                    <span class="fw-bold fs-8 font-monospace" style="color: #0f172a;">{{ item.finding }}</span>
+                                                    <span class="badge bg-{{ prio_color }}-transparent text-{{ prio_color }} font-monospace fs-9 text-uppercase">{{ item.priority }}</span>
+                                                </div>
+                                                <p class="text-muted fs-9 mb-0"><span class="text-emerald fw-semibold">Fix:</span> {{ item.remediation }}</p>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    {% if scan.status == 'inconclusive' %}
+                    <div class="cyber-card p-4 rounded-4 mt-4" style="border-top: 1px solid rgba(100, 116, 139, 0.4) !important;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="feature-icon" style="background: rgba(100, 116, 139, 0.1); border-color: rgba(100, 116, 139, 0.25);">
+                                <i class="bi bi-shield-slash text-secondary fs-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="h6 fw-bold text-white mb-1">AI Analysis Disabled</h4>
+                                <p class="text-white-50 fs-8 mb-0">AI analysis cannot be generated for inconclusive scans because no conclusive findings were recorded.</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="cyber-card p-4 rounded-4 mt-4" style="border-top: 1px solid rgba(245, 158, 11, 0.4) !important;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="feature-icon" style="background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.25);">
+                                <i class="bi bi-exclamation-triangle text-warning fs-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="h6 fw-bold text-white mb-1">AI Analysis Unavailable</h4>
+                                <p class="text-white-50 fs-8 mb-0">Automated GenAI threat intelligence could not be synthesized for this scan. You may trigger analysis manually.</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endif %}
+
+                <!-- Scan Evidence Card -->
+                <div class="cyber-card p-4 rounded-4 mt-4" id="scan-evidence-card">
+                    <div class="d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#networkScanEvidenceCollapse" aria-expanded="true" aria-controls="networkScanEvidenceCollapse" style="cursor: pointer;">
+                        <h3 class="h6 fw-bold text-white mb-0">
+                            <i class="bi bi-journal-code text-cyan me-2"></i>Scan Evidence
+                        </h3>
+                        <span class="badge bg-cyan-transparent text-cyan font-monospace fs-9 rounded-pill px-2.5 py-1">
+                            <i class="bi bi-chevron-down me-1"></i>Audit Telemetry
+                        </span>
+                    </div>
+
+                    <div class="collapse show mt-3" id="networkScanEvidenceCollapse">
+                        {% if not scan.evidence %}
+                            <div class="p-3 rounded-3 border border-secondary text-white-50 fs-8 font-monospace text-center" style="background: rgba(4, 7, 14, 0.6);">
+                                <i class="bi bi-info-circle text-warning me-1"></i>No evidence recorded (scan predates evidence storage)
+                            </div>
+                        {% else %}
+                            <div class="d-flex flex-column gap-3">
+                                {% for ev in scan.evidence %}
+                                    <div class="p-3 rounded-3 border border-secondary" style="background: rgba(4, 7, 14, 0.6);">
+                                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary">
+                                            <span class="text-cyan font-monospace fw-bold fs-8">
+                                                <i class="bi bi-terminal me-1"></i>PHASE: {{ ev.phase }}
+                                            </span>
+                                            <span class="badge {% if ev.exit_code == 0 %}bg-emerald-transparent text-emerald{% elif ev.exit_code is none %}bg-warning-transparent text-warning{% else %}bg-danger-transparent text-danger{% endif %} font-monospace fs-9">
+                                                EXIT: {{ ev.exit_code if ev.exit_code is not none else 'None' }}
+                                            </span>
+                                        </div>
+
+                                        <div class="row g-2 fs-8 font-monospace mb-2 text-white-50">
+                                            <div class="col-md-6">
+                                                <span>DURATION:</span>
+                                                <span class="text-white ms-1">{{ "%.2f"|format(ev.duration_seconds) if ev.duration_seconds is not none else 'N/A' }}s</span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <span>NMAP VERSION:</span>
+                                                <span class="text-white ms-1">{{ ev.nmap_version or 'Unknown' }}</span>
+                                            </div>
+                                            <div class="col-12 mt-1">
+                                                <span>COMMAND:</span>
+                                                <div class="p-2 rounded-2 mt-1 text-cyan fs-9" style="background: rgba(0, 0, 0, 0.5); word-break: break-all;">
+                                                    <code>{{ ev.command }}</code>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {% if ev.stderr %}
+                                            <div class="p-2 rounded-2 border border-danger-subtle bg-danger-transparent text-danger font-monospace fs-9 mb-2" style="word-break: break-all;">
+                                                <strong>STDERR:</strong> {{ ev.stderr }}
+                                            </div>
+                                        {% endif %}
+
+                                        {% if ev.raw_xml %}
+                                            <details class="mt-2">
+                                                <summary class="btn btn-sm btn-outline-cyan font-monospace py-1 px-2.5 fs-9" style="cursor: pointer; display: inline-block;">
+                                                    <i class="bi bi-file-earmark-code me-1"></i>Show raw XML
+                                                </summary>
+                                                <div class="mt-2 p-3 rounded-3 font-monospace fs-9 text-cyan" style="background: rgba(4, 7, 14, 0.9); border: 1px solid rgba(0, 242, 254, 0.2); max-height: 350px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
+{{ ev.raw_xml }}
+                                                </div>
+                                            </details>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Context Sidebar Panel -->
+            <div class="col-xl-4">
+                <div class="cyber-card p-4 rounded-4 mb-4">
+                    <h4 class="h6 fw-bold text-white mb-3 border-bottom border-secondary pb-2">
+                        <i class="bi bi-info-circle text-cyan me-2"></i>Network Session
+                    </h4>
+                    <ul class="list-unstyled mb-0 fs-8 text-white-50 font-monospace">
+                        <li class="mb-2 d-flex justify-content-between">
+                            <span>SESSION ID:</span>
+                            <span class="text-cyan">{{ scan.uuid[:10] }}...</span>
+                        </li>
+                        <li class="mb-2 d-flex justify-content-between">
+                            <span>TARGET HOST:</span>
+                            <span class="text-white">{{ scan.ip_address }}</span>
+                        </li>
+                        <li class="mb-2 d-flex justify-content-between">
+                            <span>STATUS:</span>
+                            <span class="{% if scan.status == 'inconclusive' %}text-secondary{% else %}text-emerald{% endif %} text-uppercase fw-semibold">{{ scan.status }}</span>
+                        </li>
+                        <li class="d-flex justify-content-between">
+                            <span>OPERATOR:</span>
+                            <span class="text-white text-truncate" style="max-width: 140px;">{{ current_user.email }}</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="cyber-card p-4 rounded-4">
+                    <h4 class="h6 fw-bold text-white mb-3 border-bottom border-secondary pb-2">
+                        <i class="bi bi-cpu text-purple me-2"></i>Export & Actions
+                    </h4>
+                    {% if scan.status == 'inconclusive' %}
+                        <div class="alert alert-dark border-secondary text-white-50 fs-9 p-2.5 rounded-3 mb-2">
+                            <i class="bi bi-lock-fill text-warning me-1"></i>AI Analysis and PDF reports are unavailable for inconclusive scans.
+                        </div>
+                    {% elif ai_data %}
+                        <a href="{{ url_for('network_scanner.download_pdf', uuid=scan.uuid) }}" class="btn btn-emerald w-100 py-2.5 rounded-pill fw-semibold btn-sm shadow-lg-emerald mb-2">
+                            <i class="bi bi-file-earmark-pdf-fill me-1.5"></i>Download PDF Report
+                        </a>
+                    {% else %}
+                        <form method="POST" action="{{ url_for('network_scanner.trigger_ai', uuid=scan.uuid) }}" class="mb-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-cyber-violet w-100 py-2.5 rounded-pill fw-semibold btn-sm mb-2">
+                                <i class="bi bi-robot me-1.5"></i>Analyze with AI
+                            </button>
+                        </form>
+                        <a href="{{ url_for('network_scanner.download_pdf', uuid=scan.uuid) }}" class="btn btn-outline-secondary w-100 py-2 rounded-pill fw-semibold btn-sm">
+                            <i class="bi bi-file-earmark-pdf-fill me-1.5"></i>Export Basic PDF
+                        </a>
+                    {% endif %}
+                    <a href="{{ url_for('network_scanner.index') }}" class="btn btn-outline-cyan w-100 py-2 rounded-pill fw-semibold btn-sm mt-2">
+                        <i class="bi bi-arrow-repeat me-1.5"></i>Run New Scan
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Control Console - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span>Admin Console</span>
+                </a>
+                <a href="{{ url_for('admin.users') }}" class="sidebar-nav-link">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Manage Users</span>
+                </a>
+                <a href="{{ url_for('admin.reports') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    <span>Manage Reports</span>
+                </a>
+                <a href="{{ url_for('admin.logs') }}" class="sidebar-nav-link">
+                    <i class="bi bi-journal-code"></i>
+                    <span>Platform Logs</span>
+                </a>
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot" style="background: var(--threat-critical); box-shadow: 0 0 8px var(--threat-critical);"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-danger fw-bold fs-7 text-uppercase font-monospace">ROOT ADMIN</span>
+                    <span class="badge bg-danger-transparent text-danger fs-9 px-2 py-0.5 rounded-pill">SUPERUSER</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot" style="background: var(--threat-critical); box-shadow: 0 0 8px var(--threat-critical);"></span>
+                    <span class="text-danger font-monospace fs-8 text-uppercase tracking-wider fw-bold">// SYSTEM CONTROL MATRIX</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Admin Control Panel</h1>
+                <p class="text-white-50 mb-0 fs-7">Global oversight of CyberGuard AI system telemetry, user registries, scanning engine operations, and audit logs.</p>
+            </div>
+        </div>
+
+        <!-- Telemetry Cards -->
+        <div class="row g-4 mb-4">
+            <!-- Total Users -->
+            <div class="col-xl-3 col-sm-6">
+                <div class="cyber-card p-4 rounded-4 transition-all hover-translate-y">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-white-50 fs-8 font-monospace text-uppercase tracking-wider">Total Users</span>
+                        <div class="feature-icon" style="width: 42px; height: 42px; background: rgba(0, 242, 254, 0.1); border-color: rgba(0, 242, 254, 0.25);">
+                            <i class="bi bi-people text-cyan fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-extrabold text-white mb-1 font-monospace" data-counter-target="{{ stats.total_users }}">{{ stats.total_users }}</h3>
+                    <span class="fs-9 text-white-50 font-monospace">Enrolled Identifiers</span>
+                </div>
+            </div>
+
+            <!-- Total Web Scans -->
+            <div class="col-xl-3 col-sm-6">
+                <div class="cyber-card p-4 rounded-4 transition-all hover-translate-y">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-white-50 fs-8 font-monospace text-uppercase tracking-wider">Web Audits</span>
+                        <div class="feature-icon" style="width: 42px; height: 42px; background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.25);">
+                            <i class="bi bi-globe text-cyan fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-extrabold text-cyan mb-1 font-monospace" data-counter-target="{{ stats.total_web_scans }}">{{ stats.total_web_scans }}</h3>
+                    <span class="fs-9 text-white-50 font-monospace">Completed Web Scans</span>
+                </div>
+            </div>
+
+            <!-- Total Network Scans -->
+            <div class="col-xl-3 col-sm-6">
+                <div class="cyber-card p-4 rounded-4 transition-all hover-translate-y">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-white-50 fs-8 font-monospace text-uppercase tracking-wider">Network Audits</span>
+                        <div class="feature-icon" style="width: 42px; height: 42px; background: rgba(16, 244, 156, 0.1); border-color: rgba(16, 244, 156, 0.25);">
+                            <i class="bi bi-broadcast text-emerald fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-extrabold text-emerald mb-1 font-monospace" data-counter-target="{{ stats.total_net_scans }}">{{ stats.total_net_scans }}</h3>
+                    <span class="fs-9 text-white-50 font-monospace">Port Sweeps Logged</span>
+                </div>
+            </div>
+
+            <!-- Average Risk Score -->
+            <div class="col-xl-3 col-sm-6">
+                <div class="cyber-card p-4 rounded-4 transition-all hover-translate-y">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-white-50 fs-8 font-monospace text-uppercase tracking-wider">Avg Risk Index</span>
+                        <div class="feature-icon" style="width: 42px; height: 42px; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.25);">
+                            <i class="bi bi-activity text-warning fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-extrabold text-warning mb-1 font-monospace">{{ stats.avg_risk_score }}<span class="fs-7 text-white-50">/100</span></h3>
+                    <span class="fs-9 text-white-50 font-monospace">Composite Risk Metric</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry Graphs -->
+        <div class="row g-4 mb-4">
+            <!-- Scan Traffic -->
+            <div class="col-lg-8">
+                <div class="cyber-card p-4 rounded-4 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom border-secondary">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-activity text-cyan fs-5"></i>
+                            <h4 class="h6 fw-bold text-white mb-0">Scanning Volume (Last 7 Days)</h4>
+                        </div>
+                        <span class="badge bg-emerald-transparent text-emerald font-monospace fs-9">7-DAY TELEMETRY</span>
+                    </div>
+                    <div style="position: relative; height: 260px;">
+                        <canvas id="scanActivityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Role Distribution -->
+            <div class="col-lg-4">
+                <div class="cyber-card p-4 rounded-4 h-100 d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-pie-chart text-cyan fs-5"></i>
+                            <h4 class="h6 fw-bold text-white mb-0">User Clearance Matrix</h4>
+                        </div>
+                    </div>
+                    <div style="position: relative; height: 200px;" class="flex-grow-1 d-flex align-items-center justify-content-center">
+                        <canvas id="roleDistributionChart"></canvas>
+                    </div>
+                    <div class="mt-3 row g-2 text-center fs-9 pt-2 border-top border-secondary font-monospace">
+                        <div class="col-4">
+                            <span class="d-block text-danger fw-semibold">Admin ({{ stats.admin_count }})</span>
+                        </div>
+                        <div class="col-4">
+                            <span class="d-block text-warning fw-semibold">Analyst ({{ stats.analyst_count }})</span>
+                        </div>
+                        <div class="col-4">
+                            <span class="d-block text-emerald fw-semibold">User ({{ stats.user_count }})</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Telemetry Grid -->
+        <div class="row">
+            <div class="col-12">
+                <div class="cyber-card p-4 rounded-4">
+                    <h4 class="h6 fw-bold text-white mb-3 pb-2 border-bottom border-secondary">
+                        <i class="bi bi-sliders text-cyan me-2"></i>Platform Infrastructure Health
+                    </h4>
+                    <ul class="list-unstyled mb-0 row g-3 text-white-50 fs-8 font-monospace">
+                        <div class="col-md-4">
+                            <li class="mb-2"><span>Reports Compiled:</span> <span class="text-white fw-bold">{{ stats.total_reports }}</span></li>
+                            <li><span>Database Status:</span> <span class="badge bg-emerald-transparent text-emerald border border-emerald fs-9">Connected // SQLite3</span></li>
+                        </div>
+                        <div class="col-md-4">
+                            <li class="mb-2"><span>Engine Mode:</span> <span class="text-cyan">Production-Diagnostics</span></li>
+                            <li><span>Cryptographic Vault:</span> <span class="text-emerald">AES-256 / Bcrypt</span></li>
+                        </div>
+                        <div class="col-md-4">
+                            <li class="mb-2"><span>Admin Clearance:</span> <span class="text-danger fw-bold">Level 3 (Superuser)</span></li>
+                            <li><span>System Clock:</span> <span class="text-white">{{ datetime }}</span></li>
+                        </div>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js and Custom Script -->
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const ctxScan = document.getElementById('scanActivityChart');
+        if (ctxScan) {
+            new Chart(ctxScan.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: {{ stats.chart_labels|tojson }},
+                    datasets: [{
+                        label: 'Audits Executed',
+                        data: {{ stats.scan_activity|tojson }},
+                        borderColor: '#00f2fe',
+                        backgroundColor: 'rgba(0, 242, 254, 0.08)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.35,
+                        pointBackgroundColor: '#00f2fe',
+                        pointBorderColor: '#05070e',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(5, 7, 14, 0.95)',
+                            titleColor: '#00f2fe',
+                            bodyColor: '#e2e8f0',
+                            borderColor: 'rgba(0, 242, 254, 0.25)',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                            ticks: { color: '#64748b', stepSize: 1, font: { family: "'JetBrains Mono', monospace", size: 10 } }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                            ticks: { color: '#64748b', font: { family: "'JetBrains Mono', monospace", size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        const ctxRole = document.getElementById('roleDistributionChart');
+        if (ctxRole) {
+            new Chart(ctxRole.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Admin', 'Analyst', 'User'],
+                    datasets: [{
+                        data: [{{ stats.admin_count }}, {{ stats.analyst_count }}, {{ stats.user_count }}],
+                        backgroundColor: ['#ff3366', '#f59e0b', '#10f49c'],
+                        borderColor: '#05070e',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(5, 7, 14, 0.95)',
+                            titleColor: '#00f2fe',
+                            bodyColor: '#e2e8f0',
+                            borderColor: 'rgba(0, 242, 254, 0.25)',
+                            borderWidth: 1
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

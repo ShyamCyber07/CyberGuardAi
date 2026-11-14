@@ -1,0 +1,13 @@
+.env
+.venv/
+dist/
+build/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+test_temp.db
+app/static/reports/*.pdf
+instance/*.db
+logs/
+tests/static/reports/

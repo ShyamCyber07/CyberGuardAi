@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Diagnostics & Security Logs - CyberGuard AI SOC{% endblock %}
+
+{% block extra_css %}
+<style>
+    .terminal-console {
+        background-color: var(--bg-terminal) !important;
+        color: var(--cyber-emerald) !important;
+        font-family: var(--font-mono) !important;
+        font-size: 0.78rem;
+        line-height: 1.5;
+        border: 1px solid rgba(0, 242, 254, 0.2);
+        border-radius: 12px;
+        padding: 16px;
+        height: 420px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.7);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span>Admin Console</span>
+                </a>
+                <a href="{{ url_for('admin.users') }}" class="sidebar-nav-link">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Manage Users</span>
+                </a>
+                <a href="{{ url_for('admin.reports') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    <span>Manage Reports</span>
+                </a>
+                <a href="{{ url_for('admin.logs') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-journal-code text-danger"></i>
+                    <span>Platform Logs</span>
+                </a>
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot" style="background: var(--threat-critical); box-shadow: 0 0 8px var(--threat-critical);"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-danger fw-bold fs-7 text-uppercase font-monospace">ROOT ADMIN</span>
+                    <span class="badge bg-danger-transparent text-danger fs-9 px-2 py-0.5 rounded-pill">SUPERUSER</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot" style="background: var(--threat-critical); box-shadow: 0 0 8px var(--threat-critical);"></span>
+                    <span class="text-danger font-monospace fs-8 text-uppercase tracking-wider fw-bold">// KERNEL & AUDIT LOG STREAM</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Platform Activity Log Center</h1>
+                <p class="text-white-50 mb-0 fs-7">Real-time inspection of database transactions, daemon logs, and active threat incidents.</p>
+            </div>
+        </div>
+
+        <!-- Logs Panels Tabs -->
+        <ul class="nav nav-tabs border-secondary mb-4 gap-2" id="logTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active bg-transparent text-white border-0 border-bottom border-teal pb-2 fw-semibold fs-8 font-monospace" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit" type="button" role="tab" aria-controls="audit" aria-selected="true">
+                    <i class="bi bi-shield-lock me-1.5 text-cyan"></i>Database Security Audit Logs
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link bg-transparent text-white border-0 border-bottom border-teal pb-2 fw-semibold fs-8 font-monospace" id="system-tab" data-bs-toggle="tab" data-bs-target="#system" type="button" role="tab" aria-controls="system" aria-selected="false">
+                    <i class="bi bi-terminal me-1.5 text-emerald"></i>Rotating Application Logs
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link bg-transparent text-white border-0 border-bottom border-teal pb-2 fw-semibold fs-8 font-monospace" id="threat-tab" data-bs-toggle="tab" data-bs-target="#threats" type="button" role="tab" aria-controls="threats" aria-selected="false">
+                    <i class="bi bi-exclamation-triangle-fill text-danger me-1.5"></i>Recorded Threat Event Logs
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="logTabContent">
+            <!-- Database Audit Logs Panel -->
+            <div class="tab-pane fade show active" id="audit" role="tabpanel" aria-labelledby="audit-tab">
+                <div class="cyber-card p-4 rounded-4">
+                    {% if audit_logs.items %}
+                        <div class="table-responsive">
+                            <table class="table table-cyber align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Security Action</th>
+                                        <th scope="col">Account Owner</th>
+                                        <th scope="col">IP Origin</th>
+                                        <th scope="col">User Agent</th>
+                                        <th scope="col" class="text-end">Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in audit_logs.items %}
+                                    <tr>
+                                        <td class="fw-bold text-white"><code class="text-cyan font-monospace fs-8">{{ log.action }}</code></td>
+                                        <td class="text-white-50 fs-8 font-monospace">{% if log.user %}{{ log.user.email }}{% else %}Anonymous{% endif %}</td>
+                                        <td class="font-monospace fs-8 text-white-50">{{ log.ip_address or 'System Core' }}</td>
+                                        <td class="text-white-50 text-truncate fs-9 font-monospace" style="max-width: 180px;" title="{{ log.user_agent }}">{{ log.user_agent or 'N/A' }}</td>
+                                        <td class="text-end fs-8 text-white-50 font-monospace">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if audit_logs.pages > 1 %}
+                            <nav class="d-flex justify-content-between align-items-center mt-4 border-top border-secondary pt-3">
+                                <span class="fs-9 text-white-50 font-monospace">Page {{ audit_logs.page }} of {{ audit_logs.pages }}</span>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item {% if not audit_logs.has_prev %}disabled{% endif %}">
+                                        <a class="page-link bg-dark border-secondary text-white" href="{{ url_for('admin.logs', page=audit_logs.prev_num) }}">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                    {% for p in audit_logs.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                                        {% if p %}
+                                            <li class="page-item {% if p == audit_logs.page %}active{% endif %}">
+                                                <a class="page-link {% if p == audit_logs.page %}bg-emerald border-emerald text-dark fw-bold{% else %}bg-dark border-secondary text-white{% endif %}" href="{{ url_for('admin.logs', page=p) }}">{{ p }}</a>
+                                            </li>
+                                        {% else %}
+                                            <li class="page-item disabled"><span class="page-link bg-dark border-secondary text-white">...</span></li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <li class="page-item {% if not audit_logs.has_next %}disabled{% endif %}">
+                                        <a class="page-link bg-dark border-secondary text-white" href="{{ url_for('admin.logs', page=audit_logs.next_num) }}">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="p-5 text-center">
+                            <div class="feature-icon mx-auto mb-3" style="background: rgba(255, 255, 255, 0.04);">
+                                <i class="bi bi-shield-lock text-white-50 fs-3"></i>
+                            </div>
+                            <h4 class="text-white fw-bold mb-1">No Audit Logs Found</h4>
+                            <p class="text-white-50 fs-8 mb-0">The database audit logger has not recorded any critical administrative events yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Application Rotating Logs Panel -->
+            <div class="tab-pane fade" id="system" role="tabpanel" aria-labelledby="system-tab">
+                <div class="cyber-card p-4 rounded-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="fs-8 text-white-50 font-monospace">Rotated App Log Stream (Latest 100 entries)</span>
+                        <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-cyan btn-sm px-3 rounded-pill fw-semibold fs-9">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh Stream
+                        </a>
+                    </div>
+                    <div class="terminal-console">
+                        {%- for line in log_lines -%}
+                            {{ line }}
+                        {%- endfor -%}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Threat Event Logs Panel -->
+            <div class="tab-pane fade" id="threats" role="tabpanel" aria-labelledby="threat-tab">
+                <div class="cyber-card p-4 rounded-4">
+                    {% if threat_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-cyber align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Event IP</th>
+                                        <th scope="col">Threat Type</th>
+                                        <th scope="col">Severity</th>
+                                        <th scope="col">Description</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col" class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in threat_logs %}
+                                    <tr>
+                                        <td class="font-monospace fs-8 text-white fw-bold">{{ log.source_ip }}</td>
+                                        <td><span class="badge bg-danger-transparent text-danger font-monospace fs-9">{{ log.threat_type }}</span></td>
+                                        <td>
+                                            {% set sev_color = 'danger' if log.severity == 'Critical' else 'warning' if log.severity == 'High' else 'cyan' %}
+                                            <span class="badge bg-{{ sev_color }}-transparent text-{{ sev_color }} font-monospace fs-9 text-uppercase">{{ log.severity }}</span>
+                                        </td>
+                                        <td class="text-white-50 fs-8" style="max-width: 300px; white-space: normal;">{{ log.description or 'No description' }}</td>
+                                        <td>
+                                            {% if log.resolved %}
+                                                <span class="badge bg-emerald-transparent text-emerald font-monospace fs-9">Resolved</span>
+                                            {% else %}
+                                                <span class="badge bg-warning-transparent text-warning font-monospace fs-9">Active Threat</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            {% if not log.resolved %}
+                                                <form action="{{ url_for('admin.resolve_threat', threat_id=log.id) }}" method="POST" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-emerald btn-sm px-3 rounded-pill fw-semibold fs-9">
+                                                        <i class="bi bi-check-lg me-1"></i>Resolve
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <span class="text-emerald fs-9 font-monospace"><i class="bi bi-check-circle-fill me-1"></i>Remediated</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="p-5 text-center">
+                            <div class="feature-icon mx-auto mb-3" style="background: rgba(16, 244, 156, 0.1);">
+                                <i class="bi bi-shield-check text-emerald fs-3"></i>
+                            </div>
+                            <h4 class="text-white fw-bold mb-1">Zero Recorded Threats</h4>
+                            <p class="text-white-50 fs-8 mb-0">No active threat incidents or unauthorized ingress attempts logged.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

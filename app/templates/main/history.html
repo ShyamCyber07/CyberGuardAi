@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Registries & Compliance - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+
+                <span class="sidebar-category">Intelligence</span>
+                <a href="{{ url_for('assistant.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-robot text-purple"></i>
+                    <span>AI Copilot</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+                
+                <span class="sidebar-category">System</span>
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-nav-link">
+                    <i class="bi bi-person-gear"></i>
+                    <span>Profile & Keys</span>
+                </a>
+                {% if current_user.role == 'admin' %}
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span class="text-danger fw-semibold">Admin Console</span>
+                </a>
+                {% endif %}
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-white fw-bold fs-7 text-uppercase font-monospace">{{ current_user.role }}</span>
+                    <span class="badge bg-emerald-transparent text-emerald fs-9 px-2 py-0.5 rounded-pill">AUTHENTICATED</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot"></span>
+                    <span class="text-cyan font-monospace fs-8 text-uppercase tracking-wider fw-bold">// HISTORICAL COMPLIANCE</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Assessment Scan Registries</h1>
+                <p class="text-white-50 mb-0 fs-7">Search, inspect, and export historical web vulnerability diagnostics and network port audits.</p>
+            </div>
+        </div>
+
+        <!-- Filter and Search Toolbar -->
+        <div class="cyber-card p-4 rounded-4 mb-4">
+            <form method="GET" action="{{ url_for('main.history') }}" class="row g-3 align-items-end">
+                <!-- Search Input -->
+                <div class="col-lg-4 col-md-6">
+                    <label for="q" class="form-label text-white-50 fs-8 font-monospace text-uppercase">Search Target Vector</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search text-cyan"></i></span>
+                        <input type="text" class="form-control font-monospace fs-8" id="q" name="q" value="{{ search_query }}" placeholder="e.g. 192.168.1.1, example.com">
+                    </div>
+                </div>
+
+                <!-- Type Filter -->
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label for="type" class="form-label text-white-50 fs-8 font-monospace text-uppercase">Audit Type</label>
+                    <select class="form-select font-monospace fs-8" id="type" name="type">
+                        <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All Audits</option>
+                        <option value="website" {% if filter_type == 'website' %}selected{% endif %}>Web Security</option>
+                        <option value="network" {% if filter_type == 'network' %}selected{% endif %}>Network Ports</option>
+                    </select>
+                </div>
+
+                <!-- Risk Filter -->
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label for="risk" class="form-label text-white-50 fs-8 font-monospace text-uppercase">Severity Filter</label>
+                    <select class="form-select font-monospace fs-8" id="risk" name="risk">
+                        <option value="all" {% if filter_risk == 'all' %}selected{% endif %}>All Levels</option>
+                        <option value="low" {% if filter_risk == 'low' %}selected{% endif %}>Low Risk</option>
+                        <option value="medium" {% if filter_risk == 'medium' %}selected{% endif %}>Medium Risk</option>
+                        <option value="high" {% if filter_risk == 'high' %}selected{% endif %}>High Risk</option>
+                    </select>
+                </div>
+
+                <!-- Sort Order -->
+                <div class="col-lg-2 col-md-4 col-6">
+                    <label for="sort" class="form-label text-white-50 fs-8 font-monospace text-uppercase">Sort Hierarchy</label>
+                    <select class="form-select font-monospace fs-8" id="sort" name="sort">
+                        <option value="date_desc" {% if sort_by == 'date_desc' %}selected{% endif %}>Newest First</option>
+                        <option value="date_asc" {% if sort_by == 'date_asc' %}selected{% endif %}>Oldest First</option>
+                        <option value="target_asc" {% if sort_by == 'target_asc' %}selected{% endif %}>Target A-Z</option>
+                        <option value="target_desc" {% if sort_by == 'target_desc' %}selected{% endif %}>Target Z-A</option>
+                        <option value="risk_desc" {% if sort_by == 'risk_desc' %}selected{% endif %}>Highest Risk</option>
+                        <option value="risk_asc" {% if sort_by == 'risk_asc' %}selected{% endif %}>Lowest Risk</option>
+                    </select>
+                </div>
+
+                <!-- Apply Filters -->
+                <div class="col-lg-2 col-md-2 col-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-emerald w-100 py-2 fw-semibold btn-sm fs-8">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    <a href="{{ url_for('main.history') }}" class="btn btn-outline-secondary py-2 px-3 btn-sm" title="Reset Filters">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- History Table -->
+        <div class="cyber-card p-4 rounded-4">
+            {% if scans %}
+                <div class="table-responsive">
+                    <table class="table table-cyber align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Target Endpoint</th>
+                                <th scope="col">Audit Type</th>
+                                <th scope="col">Scope Profile</th>
+                                <th scope="col">Timestamp</th>
+                                <th scope="col">Risk Index</th>
+                                <th scope="col" class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for scan in scans %}
+                            <tr>
+                                <td class="font-monospace fw-bold text-white text-truncate fs-8" style="max-width: 220px;" title="{{ scan.target }}">{{ scan.target }}</td>
+                                <td>
+                                    {% if scan.type == 'website' %}
+                                        <span class="badge bg-teal-transparent text-cyan font-monospace fs-9 text-uppercase"><i class="bi bi-globe me-1"></i>Website</span>
+                                    {% else %}
+                                        <span class="badge bg-purple-transparent text-purple font-monospace fs-9 text-uppercase"><i class="bi bi-broadcast me-1"></i>Network</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fs-8 text-white-50 font-monospace">{{ scan.profile }}</td>
+                                <td class="fs-8 text-white-50 font-monospace">{{ scan.date.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                                <td>
+                                    {% set badge_color = 'danger' if scan.risk_level == 'High' else 'warning' if scan.risk_level == 'Medium' else 'secondary' if scan.risk_level == 'Inconclusive' else 'emerald' %}
+                                    <span class="badge bg-{{ badge_color }}-transparent text-{{ badge_color }} font-monospace fs-9 text-uppercase fw-semibold">
+                                        {{ scan.risk_level }}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group gap-1.5">
+                                        {% if scan.type == 'website' %}
+                                            <a href="{{ url_for('scanner.results', uuid=scan.uuid) }}" class="btn btn-outline-emerald btn-sm py-1 px-3 fs-9 rounded-pill">
+                                                <i class="bi bi-eye me-1"></i>View
+                                            </a>
+                                            <a href="{{ url_for('scanner.download_pdf', uuid=scan.uuid) }}" class="btn btn-outline-light btn-sm py-1 px-2.5 fs-9 rounded-circle" title="Export PDF">
+                                                <i class="bi bi-file-earmark-pdf-fill"></i>
+                                            </a>
+                                        {% else %}
+                                            <a href="{{ url_for('network_scanner.results', uuid=scan.uuid) }}" class="btn btn-outline-emerald btn-sm py-1 px-3 fs-9 rounded-pill">
+                                                <i class="bi bi-eye me-1"></i>View
+                                            </a>
+                                            <a href="{{ url_for('network_scanner.download_pdf', uuid=scan.uuid) }}" class="btn btn-outline-light btn-sm py-1 px-2.5 fs-9 rounded-circle" title="Export PDF">
+                                                <i class="bi bi-file-earmark-pdf-fill"></i>
+                                            </a>
+                                        {% endif %}
+                                        <!-- Delete Trigger Button -->
+                                        <form method="POST" action="{{ url_for('main.delete_scan', scan_type=scan.type, uuid=scan.uuid) }}" onsubmit="return confirm('Permanently purge this audit registry and reports?');" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2 fs-9 rounded-circle" title="Purge Record">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Controls -->
+                {% if total_pages > 1 %}
+                    <nav class="d-flex justify-content-between align-items-center mt-4 border-top border-secondary pt-3">
+                        <span class="fs-8 text-white-50 font-monospace">Showing {{ scans|length }} of {{ total_items }} audit records</span>
+                        <ul class="pagination pagination-sm mb-0">
+                            <!-- Previous Page -->
+                            <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                                <a class="page-link bg-dark border-secondary text-white" href="{{ url_for('main.history', page=page-1, q=search_query, type=filter_type, risk=filter_risk, sort=sort_by) }}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+
+                            {% for p in range(1, total_pages + 1) %}
+                                <li class="page-item {% if p == page %}active{% endif %}">
+                                    <a class="page-link {% if p == page %}bg-emerald border-emerald text-dark fw-bold{% else %}bg-dark border-secondary text-white{% endif %}" href="{{ url_for('main.history', page=p, q=search_query, type=filter_type, risk=filter_risk, sort=sort_by) }}">{{ p }}</a>
+                                </li>
+                            {% endfor %}
+
+                            <!-- Next Page -->
+                            <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                                <a class="page-link bg-dark border-secondary text-white" href="{{ url_for('main.history', page=page+1, q=search_query, type=filter_type, risk=filter_risk, sort=sort_by) }}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="p-5 text-center">
+                    <div class="feature-icon mx-auto mb-3" style="background: rgba(255, 255, 255, 0.04);">
+                        <i class="bi bi-file-earmark-bar-graph text-white-50 fs-3"></i>
+                    </div>
+                    <h4 class="text-white fw-bold mb-1">No Audit Registries Found</h4>
+                    <p class="text-white-50 fs-8 mb-4">Try refining your filter criteria or execute a new vulnerability assessment.</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <a href="{{ url_for('scanner.index') }}" class="btn btn-emerald px-4 py-2 rounded-pill fw-semibold btn-sm">
+                            <i class="bi bi-shield-check me-1.5"></i>Run Web Audit
+                        </a>
+                        <a href="{{ url_for('network_scanner.index') }}" class="btn btn-outline-emerald px-4 py-2 rounded-pill fw-semibold btn-sm">
+                            <i class="bi bi-broadcast me-1.5"></i>Run Network Audit
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

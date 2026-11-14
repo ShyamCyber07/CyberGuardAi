@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Identity & Cryptographic Profile - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Header Page Description -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="beacon-dot"></span>
+                <span class="text-cyan font-monospace fs-8 text-uppercase tracking-wider fw-bold">// IDENTITY CONSOLE</span>
+            </div>
+            <h1 class="fw-extrabold text-white mt-1 mb-1">Station Profile & Cryptographic Keys</h1>
+            <p class="text-white-50 fs-7">Manage your analyst identity vectors, email bindings, and credential rotation parameters.</p>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Profile details -->
+        <div class="col-lg-6">
+            <div class="cyber-card p-4 rounded-4 h-100">
+                <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom border-secondary">
+                    <i class="bi bi-person-lines-fill text-cyan fs-5"></i>
+                    <h3 class="h6 fw-bold text-white mb-0">Station Identity & Clearance</h3>
+                </div>
+                
+                <div class="mb-4 p-3 rounded-3 border border-secondary" style="background: rgba(4, 7, 14, 0.8);">
+                    <div class="row mb-2">
+                        <span class="col-4 text-white-50 fs-8 font-monospace text-uppercase">ANALYST UUID:</span>
+                        <span class="col-8 text-cyan font-monospace fs-8 text-truncate">{{ current_user.uuid }}</span>
+                    </div>
+                    <div class="row mb-2">
+                        <span class="col-4 text-white-50 fs-8 font-monospace text-uppercase">CLEARANCE:</span>
+                        <span class="col-8">
+                            <span class="badge bg-emerald-transparent text-emerald font-monospace fw-bold text-uppercase fs-9">{{ current_user.role }}</span>
+                        </span>
+                    </div>
+                    <div class="row">
+                        <span class="col-4 text-white-50 fs-8 font-monospace text-uppercase">ENROLLED ON:</span>
+                        <span class="col-8 text-white font-monospace fs-8">{{ current_user.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+                    </div>
+                </div>
+                
+                <!-- Profile details form -->
+                <form method="POST" action="">
+                    {{ profile_form.hidden_tag() }}
+                    
+                    <div class="mb-4">
+                        <label for="email" class="form-label text-white-50 fs-8 font-monospace text-uppercase">
+                            <i class="bi bi-envelope text-cyan me-1"></i>Primary Email Vector
+                        </label>
+                        {% if profile_form.email.errors %}
+                            {{ profile_form.email(class="form-control font-monospace border-danger py-2", id="email") }}
+                            <div class="text-danger fs-8 mt-1">
+                                {% for error in profile_form.email.errors %}
+                                    <span><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ profile_form.email(class="form-control font-monospace py-2", id="email") }}
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" name="submit_profile" class="btn btn-outline-emerald px-4 rounded-pill fw-semibold btn-sm">
+                        <i class="bi bi-check2-circle me-1.5"></i>Update Email Vector
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Change Password form -->
+        <div class="col-lg-6">
+            <div class="cyber-card p-4 rounded-4 h-100">
+                <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom border-secondary">
+                    <i class="bi bi-key-fill text-cyan fs-5"></i>
+                    <h3 class="h6 fw-bold text-white mb-0">Decryption Key Rotation</h3>
+                </div>
+                
+                <form method="POST" action="">
+                    {{ password_form.hidden_tag() }}
+                    
+                    <!-- Current Password -->
+                    <div class="mb-3">
+                        <label for="current_password" class="form-label text-white-50 fs-8 font-monospace text-uppercase">Current Decryption Key</label>
+                        {% if password_form.current_password.errors %}
+                            {{ password_form.current_password(class="form-control font-monospace border-danger py-2", id="current_password") }}
+                            <div class="text-danger fs-8 mt-1">
+                                {% for error in password_form.current_password.errors %}
+                                    <span><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ password_form.current_password(class="form-control font-monospace py-2", id="current_password", placeholder="Enter current key") }}
+                        {% endif %}
+                    </div>
+                    
+                    <!-- New Password -->
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label text-white-50 fs-8 font-monospace text-uppercase">New High-Entropy Key</label>
+                        {% if password_form.new_password.errors %}
+                            {{ password_form.new_password(class="form-control font-monospace border-danger py-2", id="new_password") }}
+                            <div class="text-danger fs-8 mt-1">
+                                {% for error in password_form.new_password.errors %}
+                                    <span><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ password_form.new_password(class="form-control font-monospace py-2", id="new_password", placeholder="Min 8 characters") }}
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Confirm New Password -->
+                    <div class="mb-4">
+                        <label for="confirm_new_password" class="form-label text-white-50 fs-8 font-monospace text-uppercase">Confirm New Key</label>
+                        {% if password_form.confirm_new_password.errors %}
+                            {{ password_form.confirm_new_password(class="form-control font-monospace border-danger py-2", id="confirm_new_password") }}
+                            <div class="text-danger fs-8 mt-1">
+                                {% for error in password_form.confirm_new_password.errors %}
+                                    <span><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ password_form.confirm_new_password(class="form-control font-monospace py-2", id="confirm_new_password", placeholder="Repeat new key") }}
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" name="submit_password" class="btn btn-emerald px-4 py-2 rounded-pill fw-semibold btn-sm">
+                        <i class="bi bi-arrow-repeat me-1.5"></i>Rotate Decryption Key
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

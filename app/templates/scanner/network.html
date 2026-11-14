@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Network Security Scanner - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+
+                <span class="sidebar-category">System</span>
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-nav-link">
+                    <i class="bi bi-person-gear"></i>
+                    <span>Profile & Keys</span>
+                </a>
+                {% if current_user.role == 'admin' %}
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span class="text-danger fw-semibold">Admin Console</span>
+                </a>
+                {% endif %}
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-white fw-bold fs-7 text-uppercase font-monospace">{{ current_user.role }}</span>
+                    <span class="badge bg-emerald-transparent text-emerald fs-9 px-2 py-0.5 rounded-pill">AUTHENTICATED</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot"></span>
+                    <span class="text-cyan font-monospace fs-8 text-uppercase tracking-wider fw-bold">// PORT AUDIT ENGINE</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Network Scanner</h1>
+                <p class="text-white-50 mb-0 fs-7">Audit host ports, service configurations, and active server vectors.</p>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-7">
+                <div class="cyber-card p-5 rounded-4 text-center">
+                    <div class="radar-ring-wrapper mb-3" style="width: 100px; height: 100px;">
+                        <div class="radar-ring radar-ring-1"></div>
+                        <div class="radar-sweep-center" style="width: 40px; height: 40px;">
+                            <i class="bi bi-broadcast fs-5 text-emerald"></i>
+                        </div>
+                    </div>
+                    <h3 class="h5 fw-bold text-white mb-2">Network Port Diagnostics</h3>
+                    <p class="text-white-50 fs-8 mb-4">Please use the dedicated network scanner console to execute scans with port profiles.</p>
+                    <a href="{{ url_for('network_scanner.index') }}" class="btn btn-emerald px-4 py-2 rounded-pill fw-semibold btn-sm">
+                        <i class="bi bi-arrow-right-circle me-1.5"></i>Go to Network Audit Console
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

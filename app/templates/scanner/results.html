@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Results - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+
+                <span class="sidebar-category">Intelligence</span>
+                <a href="{{ url_for('assistant.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-robot text-purple"></i>
+                    <span>AI Copilot</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+                
+                <span class="sidebar-category">System</span>
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-nav-link">
+                    <i class="bi bi-person-gear"></i>
+                    <span>Profile & Keys</span>
+                </a>
+                {% if current_user.role == 'admin' %}
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span class="text-danger fw-semibold">Admin Console</span>
+                </a>
+                {% endif %}
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-white fw-bold fs-7 text-uppercase font-monospace">{{ current_user.role }}</span>
+                    <span class="badge bg-emerald-transparent text-emerald fs-9 px-2 py-0.5 rounded-pill">AUTHENTICATED</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Results Page Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot"></span>
+                    <span class="text-cyan font-monospace fs-8 text-uppercase tracking-wider fw-bold">// VULNERABILITY READOUT</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Audit Results</h1>
+                <p class="text-white-50 mb-0 fs-7">
+                    Target Endpoint Destination: <code class="text-cyan font-monospace fw-bold fs-6">{{ scan.target_destination }}</code>
+                </p>
+            </div>
+            <div class="col-md-5 text-md-end d-flex justify-content-md-end gap-2 align-items-center flex-wrap">
+                <div class="p-2.5 rounded-3 text-start" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                    <span class="d-block text-muted fs-9 font-monospace text-uppercase">SECURITY SCORE:</span>
+                    {% set score = scan.security_score if scan.security_score is not none else 0 %}
+                    {% set score_color = 'emerald' if score >= 85 else 'warning' if score >= 50 else 'danger' %}
+                    <span class="text-{{ score_color }} fs-5 fw-extrabold font-monospace">{{ score }}<span class="fs-8 text-muted">/100</span></span>
+                </div>
+                {% if scan.risk_level %}
+                <div class="p-2.5 rounded-3 text-start" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                    <span class="d-block text-muted fs-9 font-monospace text-uppercase">RISK LEVEL:</span>
+                    {% set r_color = 'danger' if scan.risk_level.lower() in ['critical', 'high'] else 'warning' if scan.risk_level.lower() == 'medium' else 'emerald' %}
+                    <span class="text-{{ r_color }} fs-5 fw-extrabold font-monospace text-uppercase">{{ scan.risk_level.upper() }}</span>
+                </div>
+                {% endif %}
+                <div class="p-2.5 rounded-3 text-start" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                    <span class="d-block text-muted fs-9 font-monospace text-uppercase">AUDIT TIME:</span>
+                    <span class="fs-8 font-monospace fw-bold" style="color: #0f172a;">{{ scan.completed_at.strftime('%Y-%m-%d %H:%M UTC') if scan.completed_at else 'Inconclusive' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vulnerabilities List -->
+        <div class="row g-4">
+            <div class="col-xl-8">
+                <!-- Original Security Scan Summary -->
+                <div class="cyber-card p-4 rounded-4 mb-4">
+                    <h3 class="h6 fw-bold text-white mb-3 pb-2 border-bottom border-secondary">
+                        <i class="bi bi-shield-check text-cyan me-2"></i>Original Security Scan Summary
+                    </h3>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled mb-0 fs-7 text-white-50">
+                                <li class="mb-2.5 d-flex justify-content-between align-items-center">
+                                    <span>HTTPS Status:</span>
+                                    {% if scan.target_destination.lower().startswith('https://') %}
+                                        <span class="text-emerald fw-semibold font-monospace fs-8"><i class="bi bi-lock-fill me-1"></i>HTTPS Enabled</span>
+                                    {% else %}
+                                        <span class="text-danger fw-semibold font-monospace fs-8"><i class="bi bi-unlock-fill me-1"></i>HTTP Unencrypted</span>
+                                    {% endif %}
+                                </li>
+                                <li class="mb-2.5 d-flex justify-content-between align-items-center">
+                                    <span>SSL Certificate:</span>
+                                    {% if ssl_status %}
+                                        <span class="text-{{ ssl_status.badge }} fw-semibold font-monospace fs-8">
+                                            <i class="bi {{ ssl_status.icon }} me-1"></i>{{ ssl_status.label }}
+                                        </span>
+                                    {% else %}
+                                        {% set ns_ssl = namespace(has_error=false, near_exp=false, not_tested=false) %}
+                                        {% for result in results %}
+                                            {% if 'Expired' in result.vulnerability_name or 'Self-Signed' in result.vulnerability_name or 'Untrusted' in result.vulnerability_name or 'Mismatch' in result.vulnerability_name or 'Handshake' in result.vulnerability_name %}
+                                                {% set ns_ssl.has_error = true %}
+                                            {% elif 'Near Expiration' in result.vulnerability_name %}
+                                                {% set ns_ssl.near_exp = true %}
+                                            {% elif result.vulnerability_name in ['Target Request Timed Out', 'Target Connection Failed', 'Target Request Failed'] %}
+                                                {% set ns_ssl.not_tested = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% if not scan.target_destination.lower().startswith('https://') %}
+                                            <span class="text-white-50 font-monospace fs-8">Not Applicable</span>
+                                        {% elif ns_ssl.has_error %}
+                                            <span class="text-danger fw-semibold font-monospace fs-8"><i class="bi bi-shield-exclamation me-1"></i>SSL Issues</span>
+                                        {% elif ns_ssl.near_exp %}
+                                            <span class="text-warning fw-semibold font-monospace fs-8"><i class="bi bi-shield-exclamation me-1"></i>Expiring Soon</span>
+                                        {% elif ns_ssl.not_tested %}
+                                            <span class="text-warning fw-semibold font-monospace fs-8"><i class="bi bi-dash-circle me-1"></i>Not Tested</span>
+                                        {% else %}
+                                            <span class="text-emerald fw-semibold font-monospace fs-8"><i class="bi bi-shield-fill-check me-1"></i>Valid SSL</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </li>
+                                <li class="d-flex justify-content-between align-items-center">
+                                    <span>Security Score:</span>
+                                    {% set score = scan.security_score if scan.security_score is not none else 0 %}
+                                    {% set score_color = 'emerald' if score >= 85 else 'warning' if score >= 50 else 'danger' %}
+                                    <span class="text-{{ score_color }} fw-bold font-monospace">{{ score }}/100</span>
+                                </li>
+                                {% if scan.risk_level %}
+                                <li class="d-flex justify-content-between align-items-center mt-2">
+                                    <span>Authoritative Risk:</span>
+                                    {% set r_color = 'danger' if scan.risk_level.lower() in ['critical', 'high'] else 'warning' if scan.risk_level.lower() == 'medium' else 'emerald' %}
+                                    <span class="text-{{ r_color }} fw-bold font-monospace text-uppercase">{{ scan.risk_level.upper() }}</span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        
+                        <div class="col-md-6 border-start border-secondary ps-4">
+                            {% set ns_tls = namespace(disabled=false) %}
+                            {% for r in results %}
+                                {% if r.raw_payload and r.raw_payload.get('tls_verified') is false %}
+                                    {% set ns_tls.disabled = true %}
+                                {% endif %}
+                            {% endfor %}
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase tracking-wider">Security Headers Status</span>
+                                {% if ns_tls.disabled %}
+                                    <span class="badge bg-warning-transparent text-warning font-monospace fs-9 border border-warning-subtle">
+                                        <i class="bi bi-shield-exclamation me-1"></i>Headers retrieved with TLS verification disabled
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <div class="row g-2">
+                                {% if headers_status %}
+                                    {% for h in headers_status %}
+                                        <div class="col-6">
+                                            <div class="p-1.5 rounded-2 d-flex justify-content-between align-items-center fs-8 font-monospace" style="background: rgba(4, 7, 14, 0.7); border: 1px solid var(--border-subtle);">
+                                                <span class="text-white-50">{{ h.label }}</span>
+                                                <div class="d-flex align-items-center gap-1.5">
+                                                    <span class="badge bg-{{ h.badge }}-transparent text-{{ h.badge }} fs-9 px-1.5 py-0.5 rounded text-uppercase">{{ h.label_text }}</span>
+                                                    <i class="bi {{ h.icon }} text-{{ h.badge }}"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    {# Robust Jinja2 namespace fallback #}
+                                    {% set ns_conn = namespace(failed=false) %}
+                                    {% for r in results %}
+                                        {% if r.vulnerability_name in ['Target Request Timed Out', 'Target Connection Failed', 'Target Request Failed'] %}
+                                            {% set ns_conn.failed = true %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% set header_checks_fallback = [
+                                        ('HSTS', 'Strict-Transport-Security'),
+                                        ('CSP', 'Content-Security-Policy'),
+                                        ('X-Frame-Options', 'X-Frame-Options'),
+                                        ('X-Content-Type-Options', 'X-Content-Type-Options'),
+                                        ('Referrer-Policy', 'Referrer-Policy'),
+                                        ('Permissions-Policy', 'Permissions-Policy')
+                                    ] %}
+                                    {% for label, header_key in header_checks_fallback %}
+                                        {% set ns_h = namespace(missing=false) %}
+                                        {% for r in results %}
+                                            {% if (r.raw_payload and r.raw_payload.get('header_checked') == header_key) or header_key in r.vulnerability_name %}
+                                                {% set ns_h.missing = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        <div class="col-6">
+                                            <div class="p-1.5 rounded-2 d-flex justify-content-between align-items-center fs-8 font-monospace" style="background: rgba(4, 7, 14, 0.7); border: 1px solid var(--border-subtle);">
+                                                <span class="text-white-50">{{ label }}</span>
+                                                <div class="d-flex align-items-center gap-1.5">
+                                                    {% if ns_conn.failed %}
+                                                        <span class="badge bg-warning-transparent text-warning fs-9 px-1.5 py-0.5 rounded text-uppercase">NOT TESTED</span>
+                                                        <i class="bi bi-dash-circle text-warning"></i>
+                                                    {% elif ns_h.missing %}
+                                                        <span class="badge bg-danger-transparent text-danger fs-9 px-1.5 py-0.5 rounded text-uppercase">MISSING</span>
+                                                        <i class="bi bi-x-circle text-danger"></i>
+                                                    {% else %}
+                                                        <span class="badge bg-emerald-transparent text-emerald fs-9 px-1.5 py-0.5 rounded text-uppercase">PRESENT</span>
+                                                        <i class="bi bi-check-circle text-emerald"></i>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detected Findings List -->
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h3 class="h6 fw-bold text-white mb-0">Detected Vulnerability Signatures ({{ results|length }})</h3>
+                </div>
+
+                {% if results %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for item in results %}
+                            {% set sev_badge = 'danger' if item.severity.lower() == 'critical' or item.severity.lower() == 'high' else 'warning' if item.severity.lower() == 'medium' else 'cyan' %}
+                            <div class="cyber-card p-3.5 rounded-4">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-{{ sev_badge }}-transparent text-{{ sev_badge }} font-monospace fs-9 text-uppercase">{{ item.severity }}</span>
+                                        <h4 class="fs-7 fw-bold text-white mb-0">{{ item.vulnerability_name }}</h4>
+                                    </div>
+                                    {% if item.cve_id %}
+                                        <span class="badge font-monospace fs-9" style="background: rgba(139, 92, 246, 0.12); color: var(--cyber-violet); border: 1px solid rgba(139, 92, 246, 0.3);">{{ item.cve_id }}</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-white-50 fs-8 mb-2">{{ item.description }}</p>
+                                
+                                {% if item.raw_payload and item.raw_payload.get('evidence') %}
+                                <div class="p-2.5 rounded-2 border border-secondary fs-8 mb-2 font-monospace" style="background: rgba(4, 7, 14, 0.9);">
+                                    <div class="d-flex align-items-center gap-1.5 text-cyan fw-bold fs-9 mb-1">
+                                        <i class="bi bi-search"></i>
+                                        <span>// OBSERVED EVIDENCE:</span>
+                                    </div>
+                                    <div class="text-white-50 fs-8">{{ item.raw_payload.get('evidence') }}</div>
+                                    {% if item.raw_payload.get('final_url') %}
+                                        <div class="text-white-50 fs-9 mt-1"><span class="text-secondary">Source URL:</span> <code class="text-cyan">{{ item.raw_payload.get('final_url') }}</code> (HTTP {{ item.raw_payload.get('http_status') }})</div>
+                                    {% endif %}
+                                    {% if item.raw_payload.get('not_after') or item.raw_payload.get('expires_at') %}
+                                        <div class="text-white-50 fs-9 mt-1"><span class="text-secondary">Certificate Expiry:</span> <code class="text-warning">{{ item.raw_payload.get('not_after') or item.raw_payload.get('expires_at') }}</code> ({{ item.raw_payload.get('days_remaining') }} days remaining from scan time)</div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+
+                                {% if item.remediation %}
+                                    <div class="p-2 rounded-2 border border-secondary fs-8" style="background: rgba(4, 7, 14, 0.7);">
+                                        <span class="text-emerald fw-semibold font-monospace fs-9">// REMEDIATION:</span>
+                                        <span class="text-white-50 ms-1">{{ item.remediation }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="cyber-card p-5 text-center rounded-4">
+                        <div class="feature-icon mx-auto mb-3" style="background: rgba(16, 244, 156, 0.1);">
+                            <i class="bi bi-shield-fill-check text-emerald fs-3"></i>
+                        </div>
+                        <h4 class="text-white fw-bold mb-1">Clean Audit Signature</h4>
+                        <p class="text-white-50 fs-8 mb-0">No active vulnerability signatures detected on the scanned target endpoint.</p>
+                    </div>
+                {% endif %}
+
+                <!-- AI Copilot Synthesis Card -->
+                {% if ai_data %}
+                    <div class="cyber-card p-4 rounded-4 mt-4" style="border-top: 1px solid rgba(139, 92, 246, 0.4) !important;">
+                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-robot text-purple fs-5"></i>
+                                <h3 class="h6 fw-bold text-white mb-0">AI Security Analysis <span class="text-white-50 fs-9 fw-normal">(AI-Generated)</span></h3>
+                            </div>
+                            <span class="badge bg-purple-transparent text-purple font-monospace fs-9 rounded-pill px-2.5 py-1">
+                                {{ scan.ai_response.model_used }}
+                            </span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <span class="d-block text-white-50 fs-9 font-monospace text-uppercase">OVERALL AI RISK LEVEL:</span>
+                            {% set risk_color = 'danger' if ai_data.overall_risk.lower() == 'critical' or ai_data.overall_risk.lower() == 'high' else 'warning' if ai_data.overall_risk.lower() == 'medium' else 'cyan' if ai_data.overall_risk.lower() == 'low' else 'emerald' %}
+                            <span class="badge bg-{{ risk_color }}-transparent text-{{ risk_color }} text-uppercase fs-8 font-monospace mt-1">{{ ai_data.overall_risk }}</span>
+                        </div>
+
+                        <div class="mb-3 p-3 rounded-3" style="background: rgba(139, 92, 246, 0.04); border: 1px solid rgba(139, 92, 246, 0.2);">
+                            <span class="d-block text-purple fs-8 font-monospace fw-semibold text-uppercase mb-1">Executive Summary</span>
+                            <p class="text-white fs-7 mb-0">{{ ai_data.executive_summary }}</p>
+                        </div>
+                        
+                        {% if ai_data.recommendations %}
+                            <div class="mb-3">
+                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase mb-2">Recommendations</span>
+                                <ul class="list-unstyled mb-0">
+                                    {% for rec in ai_data.recommendations %}
+                                        <li class="mb-1.5 d-flex align-items-start gap-2 fs-7 text-white-50 font-monospace">
+                                            <i class="bi bi-lightbulb-fill text-cyan mt-1 fs-8"></i>
+                                            <span>{{ rec }}</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+
+                        {% if ai_data.remediation_priority %}
+                            <div>
+                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase mb-2">Remediation Priority Actions</span>
+                                <div class="row g-2">
+                                    {% for item in ai_data.remediation_priority %}
+                                        {% set prio_color = 'danger' if item.priority.lower() == 'critical' or item.priority.lower() == 'high' else 'warning' if item.priority.lower() == 'medium' else 'cyan' %}
+                                        <div class="col-md-6">
+                                            <div class="p-2.5 rounded-3 h-100" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                                                <div class="d-flex justify-content-between mb-1">
+                                                    <span class="fw-bold fs-8 font-monospace" style="color: #0f172a;">{{ item.finding }}</span>
+                                                    <span class="badge bg-{{ prio_color }}-transparent text-{{ prio_color }} font-monospace fs-9 text-uppercase">{{ item.priority }}</span>
+                                                </div>
+                                                <p class="text-muted fs-9 mb-0"><span class="text-emerald fw-semibold">Fix:</span> {{ item.remediation }}</p>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="cyber-card p-4 rounded-4 mt-4" style="border-top: 1px solid rgba(245, 158, 11, 0.4) !important;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="feature-icon" style="background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.25);">
+                                <i class="bi bi-exclamation-triangle text-warning fs-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="h6 fw-bold text-white mb-1">AI Analysis Unavailable</h4>
+                                <p class="text-white-50 fs-8 mb-0">Automated GenAI threat intelligence could not be synthesized for this scan. You may trigger analysis manually.</p>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Scan Evidence Card -->
+                <div class="cyber-card p-4 rounded-4 mt-4" id="scan-evidence-card">
+                    <div class="d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#scanEvidenceCollapse" aria-expanded="true" aria-controls="scanEvidenceCollapse" style="cursor: pointer;">
+                        <h3 class="h6 fw-bold text-white mb-0">
+                            <i class="bi bi-journal-code text-cyan me-2"></i>Scan Evidence
+                        </h3>
+                        <span class="badge bg-cyan-transparent text-cyan font-monospace fs-9 rounded-pill px-2.5 py-1">
+                            <i class="bi bi-chevron-down me-1"></i>Audit Telemetry
+                        </span>
+                    </div>
+
+                    <div class="collapse show mt-3" id="scanEvidenceCollapse">
+                        {% if not scan.evidence_json %}
+                            <div class="p-3 rounded-3 border border-secondary text-white-50 fs-8 font-monospace text-center" style="background: rgba(4, 7, 14, 0.6);">
+                                <i class="bi bi-info-circle text-warning me-1"></i>No evidence recorded (scan predates evidence storage)
+                            </div>
+                        {% else %}
+                            <div class="p-3 rounded-3 border border-secondary mb-3" style="background: rgba(4, 7, 14, 0.6);">
+                                <div class="row g-2 fs-8 font-monospace mb-2">
+                                    <div class="col-md-6">
+                                        <span class="text-white-50">FINAL URL:</span>
+                                        <span class="text-cyan fw-bold ms-1">{{ evidence_data.final_url if evidence_data else 'N/A' }}</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-white-50">HTTP STATUS:</span>
+                                        <span class="text-white ms-1">{{ evidence_data.status_code if evidence_data and evidence_data.status_code is not none else 'N/A' }}</span>
+                                    </div>
+                                    <div class="col-12">
+                                        <span class="text-white-50">REDIRECT CHAIN:</span>
+                                        {% if evidence_data and evidence_data.redirect_chain %}
+                                            <div class="mt-1 ps-2 border-start border-cyan text-white-50 fs-9">
+                                                {% for r_url in evidence_data.redirect_chain %}
+                                                    <div><code>{{ r_url }}</code> &rarr;</div>
+                                                {% endfor %}
+                                                <div><code class="text-cyan">{{ evidence_data.final_url }}</code></div>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-white ms-1">None (Direct connection)</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {% if evidence_data and evidence_data.audit_ssl %}
+                                    <div class="pt-2 border-top border-secondary fs-8 font-monospace">
+                                        <span class="text-white-50 d-block mb-1">SSL/TLS TELEMETRY:</span>
+                                        <div class="text-white-50 fs-9">
+                                            <span>Valid: <strong class="{% if evidence_data.audit_ssl.valid %}text-emerald{% else %}text-danger{% endif %}">{{ evidence_data.audit_ssl.valid }}</strong></span> |
+                                            <span>TLS Version: <strong class="text-white">{{ evidence_data.audit_ssl.tls_version }}</strong></span> |
+                                            <span>Verified: <strong class="{% if evidence_data.audit_ssl.tls_verified %}text-emerald{% else %}text-warning{% endif %}">{{ evidence_data.audit_ssl.tls_verified }}</strong></span>
+                                            {% if evidence_data.audit_ssl.control_results %}
+                                                <div class="mt-1">Control Probes: <code>{{ evidence_data.audit_ssl.control_results }}</code></div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if evidence_data and evidence_data.response_headers %}
+                                    <div class="pt-2 border-top border-secondary fs-8 font-monospace mt-2">
+                                        <span class="text-white-50 d-block mb-1">SANITIZED RESPONSE HEADERS:</span>
+                                        <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                                            <table class="table table-sm table-dark table-borderless fs-9 mb-0">
+                                                <tbody>
+                                                    {% for h_key, h_val in evidence_data.response_headers.items() %}
+                                                        <tr>
+                                                            <td class="text-cyan py-0.5 ps-0" style="width: 220px;">{{ h_key }}:</td>
+                                                            <td class="text-white-50 py-0.5 font-monospace" style="word-break: break-all;">{{ h_val }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <details class="mt-3">
+                                    <summary class="btn btn-sm btn-outline-cyan font-monospace py-1 px-2.5 fs-9" style="cursor: pointer; display: inline-block;">
+                                        <i class="bi bi-file-earmark-code me-1"></i>Show raw evidence JSON
+                                    </summary>
+                                    <div class="mt-2 p-3 rounded-3 font-monospace fs-9 text-cyan" style="background: rgba(4, 7, 14, 0.9); border: 1px solid rgba(0, 242, 254, 0.2); max-height: 350px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
+{{ scan.evidence_json }}
+                                    </div>
+                                </details>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Context Sidebar Panel -->
+            <div class="col-xl-4">
+                <div class="cyber-card p-4 rounded-4 mb-4">
+                    <h4 class="h6 fw-bold text-white mb-3 border-bottom border-secondary pb-2">
+                        <i class="bi bi-info-circle text-cyan me-2"></i>Scan Telemetry
+                    </h4>
+                    <ul class="list-unstyled mb-0 fs-8 text-white-50 font-monospace">
+                        <li class="mb-2 d-flex justify-content-between">
+                            <span>SESSION ID:</span>
+                            <span class="text-cyan">{{ scan.uuid[:10] }}...</span>
+                        </li>
+                        <li class="mb-2 d-flex justify-content-between">
+                            <span>VECTOR TYPE:</span>
+                            <span class="text-white text-uppercase">{{ scan.target_type }}</span>
+                        </li>
+                        <li class="mb-2 d-flex justify-content-between">
+                            <span>STATUS:</span>
+                            <span class="text-emerald text-uppercase fw-semibold">{{ scan.status }}</span>
+                        </li>
+                        <li class="d-flex justify-content-between">
+                            <span>OPERATOR:</span>
+                            <span class="text-white text-truncate" style="max-width: 140px;">{{ current_user.email }}</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="cyber-card p-4 rounded-4">
+                    <h4 class="h6 fw-bold text-white mb-3 border-bottom border-secondary pb-2">
+                        <i class="bi bi-cpu text-purple me-2"></i>Export & Actions
+                    </h4>
+                    {% if ai_data %}
+                        <a href="{{ url_for('scanner.download_pdf', uuid=scan.uuid) }}" class="btn btn-emerald w-100 py-2.5 rounded-pill fw-semibold btn-sm shadow-lg-emerald mb-2">
+                            <i class="bi bi-file-earmark-pdf-fill me-1.5"></i>Download PDF Report
+                        </a>
+                    {% else %}
+                        <form method="POST" action="{{ url_for('scanner.trigger_ai', uuid=scan.uuid) }}" class="mb-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-cyber-violet w-100 py-2.5 rounded-pill fw-semibold btn-sm mb-2">
+                                <i class="bi bi-robot me-1.5"></i>Analyze with AI
+                            </button>
+                        </form>
+                        <a href="{{ url_for('scanner.download_pdf', uuid=scan.uuid) }}" class="btn btn-outline-secondary w-100 py-2 rounded-pill fw-semibold btn-sm">
+                            <i class="bi bi-file-earmark-pdf-fill me-1.5"></i>Export Basic PDF
+                        </a>
+                    {% endif %}
+                    <a href="{{ url_for('scanner.index') }}" class="btn btn-outline-cyan w-100 py-2 rounded-pill fw-semibold btn-sm mt-2">
+                        <i class="bi bi-arrow-repeat me-1.5"></i>Run New Scan
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block title %}AI Security Copilot - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Left Navigation Sidebar -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+
+                <span class="sidebar-category">Intelligence</span>
+                <a href="{{ url_for('assistant.index') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-robot text-purple"></i>
+                    <span>AI Copilot</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+                
+                <span class="sidebar-category">System</span>
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-nav-link">
+                    <i class="bi bi-person-gear"></i>
+                    <span>Profile & Keys</span>
+                </a>
+                {% if current_user.role == 'admin' %}
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span class="text-danger fw-semibold">Admin Console</span>
+                </a>
+                {% endif %}
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-white fw-bold fs-7 text-uppercase font-monospace">{{ current_user.role }}</span>
+                    <span class="badge bg-emerald-transparent text-emerald fs-9 px-2 py-0.5 rounded-pill">AUTHENTICATED</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <div class="row align-items-center justify-content-between mb-4 g-2">
+            <div class="col-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot" style="background: var(--cyber-violet); box-shadow: 0 0 8px var(--cyber-violet);"></span>
+                    <span class="text-purple font-monospace fs-8 text-uppercase tracking-wider fw-bold">Neural Security Intelligence</span>
+                </div>
+                <h1 class="fw-extrabold text-white mb-1">Gemini AI Security Copilot</h1>
+                <p class="text-white-50 mb-0 fs-7">Interactive context-bounded threat assistant querying scan findings, risk vectors, and remediation roadmaps.</p>
+            </div>
+        </div>
+
+        <input type="hidden" id="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="row g-4">
+            <!-- Left Side: Scan Selector Card -->
+            <div class="col-lg-4">
+                <div class="cyber-card p-4 rounded-4 h-100 d-flex flex-column">
+                    <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom border-secondary">
+                        <i class="bi bi-shield-fill-check text-cyan fs-5"></i>
+                        <h5 class="fw-bold text-white mb-0 fs-6">Target Scan Session</h5>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="scanSelect" class="form-label text-white-50 fs-8 font-monospace text-uppercase">Select Assessment to Query:</label>
+                        <select class="form-select font-monospace fs-8" id="scanSelect">
+                            <option value="" disabled selected>-- Select a scan --</option>
+                            {% for s in scans %}
+                                <option value="{{ s.uuid }}" data-type="{{ s.type }}" data-target="{{ s.target }}" data-score="{{ s.score }}">
+                                    {{ s.target }} ({{ s.type|capitalize }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Selected Scan Info Panel -->
+                    <div id="scanMetaPanel" class="p-3 rounded-3 border border-secondary d-none mb-3" style="background: rgba(4, 7, 14, 0.85);">
+                        <h6 class="fs-8 text-uppercase font-monospace tracking-wider text-cyan border-bottom border-secondary pb-2 mb-3">
+                            <i class="bi bi-info-circle me-1"></i>Bound Telemetry Context
+                        </h6>
+                        <div class="row g-3 fs-8 text-white-50">
+                            <div class="col-12">
+                                <span class="d-block text-white-50 fs-9 font-monospace text-uppercase">TARGET VECTOR:</span>
+                                <code id="metaTarget" class="text-cyan font-monospace fw-bold fs-7 text-truncate d-block">example.com</code>
+                            </div>
+                            <div class="col-6">
+                                <span class="d-block text-white-50 fs-9 font-monospace text-uppercase">SCAN TYPE:</span>
+                                <span id="metaType" class="text-white fw-bold text-uppercase font-monospace fs-8">Website</span>
+                            </div>
+                            <div class="col-6">
+                                <span class="d-block text-white-50 fs-9 font-monospace text-uppercase">RISK SCORE:</span>
+                                <span id="metaScore" class="text-emerald fw-bold font-monospace fs-8">85/100</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="noScanSelectedText" class="text-center py-4 text-white-50 fs-8 my-auto">
+                        <i class="bi bi-arrow-up-circle fs-3 text-white-50 d-block mb-2"></i>
+                        Please select an assessment scan from the dropdown above to load context into the Copilot.
+                    </div>
+
+                    <!-- Quick Suggestions Strip -->
+                    <div class="mt-auto pt-3 border-top border-secondary">
+                        <span class="d-block text-white-50 fs-9 font-monospace text-uppercase mb-2">Suggested Inquiries:</span>
+                        <div class="d-flex flex-wrap gap-1.5" id="promptChipsContainer">
+                            <button type="button" class="prompt-chip" onclick="applyPrompt('What is the most critical vulnerability found?')">Most critical vulnerability?</button>
+                            <button type="button" class="prompt-chip" onclick="applyPrompt('How do I remediate the highest priority finding?')">How to remediate?</button>
+                            <button type="button" class="prompt-chip" onclick="applyPrompt('Summarize overall risk in simple terms.')">Summarize risk</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Chat Assistant Component -->
+            <div class="col-lg-8">
+                <div class="cyber-card rounded-4 d-flex flex-column h-100" style="min-height: 540px; border-top: 1px solid rgba(139, 92, 246, 0.4) !important;">
+                    <!-- Chat Header -->
+                    <div class="p-3 border-bottom border-secondary d-flex align-items-center justify-content-between" style="background: rgba(5, 8, 16, 0.7);">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="p-2 rounded-3 bg-purple-transparent">
+                                <i class="bi bi-robot text-purple fs-5"></i>
+                            </div>
+                            <div>
+                                <h5 class="fs-7 fw-bold text-white mb-0 font-monospace">GEMINI DEFENSE COPILOT</h5>
+                                <span class="fs-9 text-white-50">Bounded to Selected Assessment Data</span>
+                            </div>
+                        </div>
+                        <span class="badge bg-purple-transparent text-purple font-monospace fs-9 px-3 py-1 rounded-pill">
+                            <i class="bi bi-shield-check me-1"></i>Active Neural Agent
+                        </span>
+                    </div>
+
+                    <!-- Chat Window (Scrollable Area) -->
+                    <div class="p-4 flex-grow-1 overflow-y-auto d-flex flex-column gap-3 chat-window-cyber" id="chatWindow" style="max-height: 380px; min-height: 320px; overflow-y: auto;">
+                        <!-- Initial Greeting -->
+                        <div class="d-flex flex-row align-items-start gap-2 max-w-75">
+                            <div class="p-1.5 rounded-circle bg-purple-transparent text-purple fs-7 mt-0.5">
+                                <i class="bi bi-robot"></i>
+                            </div>
+                            <div class="p-3 chat-bubble-assistant text-white-50 fs-7">
+                                <p class="mb-0 text-slate-200">Greetings, Analyst. I am your <strong>CyberGuard Copilot</strong>. Select a completed scan from the left panel to begin querying threat telemetry, compliance vectors, and priority remediation steps.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Footer Input Form -->
+                    <div class="p-3 border-top border-secondary mt-auto" style="background: rgba(5, 8, 16, 0.85);">
+                        <div class="input-group">
+                            <input type="text" class="form-control font-monospace fs-7 py-2.5 px-3" id="questionInput" placeholder="Type a security question (e.g. 'What is the highest risk?')..." disabled maxlength="1000">
+                            <button class="btn btn-emerald px-4 fs-7 fw-semibold" type="button" id="sendBtn" disabled>
+                                <span id="btnText"><i class="bi bi-send me-1"></i>Query</span>
+                                <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                        <div class="d-flex justify-content-between mt-2 fs-9 text-white-50 px-1 font-monospace">
+                            <span>Maximum 1,000 characters. Responses bounded to scan results.</span>
+                            <span class="text-purple fw-semibold"><i class="bi bi-cpu-fill me-1"></i>AI-Generated Intelligence</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const scanSelect = document.getElementById('scanSelect');
+    const scanMetaPanel = document.getElementById('scanMetaPanel');
+    const noScanSelectedText = document.getElementById('noScanSelectedText');
+    const questionInput = document.getElementById('questionInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatWindow = document.getElementById('chatWindow');
+    const csrfToken = document.getElementById('csrf_token').value;
+
+    const metaTarget = document.getElementById('metaTarget');
+    const metaType = document.getElementById('metaType');
+    const metaScore = document.getElementById('metaScore');
+
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+
+    // Handle scan selection changes
+    scanSelect.addEventListener('change', () => {
+        const option = scanSelect.options[scanSelect.selectedIndex];
+        if (option.value) {
+            metaTarget.innerText = option.getAttribute('data-target');
+            metaType.innerText = option.getAttribute('data-type');
+            metaScore.innerText = option.getAttribute('data-score');
+
+            scanMetaPanel.classList.remove('d-none');
+            noScanSelectedText.classList.add('d-none');
+
+            questionInput.disabled = false;
+            sendBtn.disabled = false;
+
+            chatWindow.innerHTML = '';
+            appendMessage('assistant', `Target scan context activated: <code>${option.getAttribute('data-target')}</code> (${option.getAttribute('data-type').toUpperCase()}). Ask me any questions regarding findings, CVE vectors, or mitigation steps.`);
+        }
+    });
+
+    // Quick Prompt Helper
+    window.applyPrompt = function(promptText) {
+        if (questionInput.disabled) return;
+        questionInput.value = promptText;
+        questionInput.focus();
+    };
+
+    sendBtn.addEventListener('click', sendQuestion);
+    questionInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            sendQuestion();
+        }
+    });
+
+    function appendMessage(role, text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `d-flex flex-row align-items-start gap-2 max-w-75 ${role === 'user' ? 'ms-auto flex-row-reverse' : ''}`;
+        
+        const avatar = document.createElement('div');
+        avatar.className = role === 'user' 
+            ? 'p-1.5 rounded-circle bg-teal-transparent text-cyan fs-7 mt-0.5' 
+            : 'p-1.5 rounded-circle bg-purple-transparent text-purple fs-7 mt-0.5';
+        avatar.innerHTML = role === 'user' ? '<i class="bi bi-person"></i>' : '<i class="bi bi-robot"></i>';
+
+        const content = document.createElement('div');
+        content.className = role === 'user' 
+            ? 'p-3 chat-bubble-user text-white fs-7' 
+            : 'p-3 chat-bubble-assistant text-white-50 fs-7';
+        
+        if (text.includes('<code>')) {
+            content.innerHTML = text;
+        } else {
+            const lines = text.split('\n');
+            lines.forEach((line, idx) => {
+                const p = document.createElement('p');
+                p.className = idx === lines.length - 1 ? 'mb-0' : 'mb-2';
+                p.textContent = line;
+                content.appendChild(p);
+            });
+        }
+
+        if (role === 'assistant') {
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'd-block text-purple fs-9 mt-2 text-uppercase font-monospace tracking-wider fw-semibold';
+            labelSpan.innerHTML = '<i class="bi bi-stars me-1"></i>AI-Generated Intelligence';
+            content.appendChild(labelSpan);
+        }
+
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(content);
+        chatWindow.appendChild(messageDiv);
+        
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function sendQuestion() {
+        const question = questionInput.value.trim();
+        const scanUuid = scanSelect.value;
+        const scanOption = scanSelect.options[scanSelect.selectedIndex];
+        
+        if (!question || !scanUuid) return;
+
+        appendMessage('user', question);
+        questionInput.value = '';
+
+        sendBtn.disabled = true;
+        questionInput.disabled = true;
+        btnText.classList.add('d-none');
+        btnSpinner.classList.remove('d-none');
+
+        const scanType = scanOption.getAttribute('data-type');
+
+        fetch('/assistant/ask', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                scan_uuid: scanUuid,
+                scan_type: scanType,
+                question: question
+            })
+        })
+        .then(response => response.json().then(data => ({ status: response.status, data })))
+        .then(({ status, data }) => {
+            if (status !== 200) {
+                appendMessage('assistant', `Error: ${data.error || 'Failed to process inquiry.'}`);
+            } else {
+                appendMessage('assistant', data.answer);
+            }
+        })
+        .catch(err => {
+            appendMessage('assistant', 'Error: A connection or network error occurred.');
+            console.error('Fetch error:', err);
+        })
+        .finally(() => {
+            sendBtn.disabled = false;
+            questionInput.disabled = false;
+            btnText.classList.remove('d-none');
+            btnSpinner.classList.add('d-none');
+            questionInput.focus();
+        });
+    }
+});
+</script>
+{% endblock %}

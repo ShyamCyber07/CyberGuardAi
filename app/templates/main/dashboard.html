@@ -1,0 +1,541 @@
+{% extends "base.html" %}
+
+{% block title %}Security Operations Center (SOC) - CyberGuard AI{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Left Navigation Sidebar -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+
+                <span class="sidebar-category">Intelligence</span>
+
+                <a href="{{ url_for('assistant.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-robot text-purple"></i>
+                    <span>AI Copilot</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+                
+                <span class="sidebar-category">System</span>
+                
+                <a href="{{ url_for('auth.profile') }}" class="sidebar-nav-link">
+                    <i class="bi bi-person-gear"></i>
+                    <span>Profile & Keys</span>
+                </a>
+                
+                {% if current_user.role == 'admin' %}
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span class="text-danger fw-semibold">Admin Console</span>
+                </a>
+                {% endif %}
+            </nav>
+            
+            <!-- User Clearance Panel -->
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-white fw-bold fs-7 text-uppercase font-monospace">{{ current_user.role }}</span>
+                    <span class="badge bg-emerald-transparent text-emerald fs-9 px-2 py-0.5 rounded-pill">AUTHENTICATED</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main SOC Content Area -->
+    <div class="dashboard-content">
+        <!-- Welcome Header and User Details -->
+        <div class="row align-items-center justify-content-between mb-4 g-3">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot"></span>
+                    <span class="text-cyan font-monospace fs-8 text-uppercase tracking-wider fw-bold">Live SOC Environment</span>
+                    <span class="text-white-50 fs-8 font-monospace">// <span id="socLiveUtcClock">UTC TIME</span></span>
+                </div>
+                <h1 class="fw-extrabold text-white mb-1">Security Operations Center</h1>
+                <p class="text-white-50 mb-0 fs-7">
+                    Station Operator: <code class="text-white font-monospace fw-semibold">{{ current_user.email }}</code>
+                </p>
+            </div>
+            <div class="col-md-5 text-md-end d-flex gap-2 justify-content-md-end flex-wrap">
+                <a href="{{ url_for('network_scanner.index') }}" class="btn btn-outline-emerald px-3.5 py-2 rounded-pill fw-semibold btn-sm">
+                    <i class="bi bi-broadcast me-1.5"></i>Network Scan
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="btn btn-emerald px-4 py-2 rounded-pill fw-semibold btn-sm">
+                    <i class="bi bi-shield-plus me-1.5"></i>Trigger Web Audit
+                </a>
+            </div>
+        </div>
+
+        <!-- Top Metrics / KPI Row -->
+        <div class="row g-4 mb-4">
+            <!-- Total Scans Card -->
+            <div class="col-md-4">
+                <div class="cyber-card p-4 rounded-4 position-relative overflow-hidden h-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-white-50 fs-8 font-monospace text-uppercase tracking-wider">TOTAL AUDITS RUN</span>
+                            <h3 class="display-6 fw-extrabold text-white mt-1 mb-0" data-counter-target="{{ kpis.total_scans }}">{{ kpis.total_scans }}</h3>
+                            <span class="text-emerald fs-9 font-monospace"><i class="bi bi-arrow-up-right me-1"></i>Continuous Verification</span>
+                        </div>
+                        <div class="feature-icon" style="background: rgba(0, 242, 254, 0.1); border-color: rgba(0, 242, 254, 0.25);">
+                            <i class="bi bi-shield-check text-cyan"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Today's Scans Card -->
+            <div class="col-md-4">
+                <div class="cyber-card p-4 rounded-4 position-relative overflow-hidden h-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-white-50 fs-8 font-monospace text-uppercase tracking-wider">TODAY'S OPERATIONS</span>
+                            <h3 class="display-6 fw-extrabold text-cyan mt-1 mb-0" data-counter-target="{{ kpis.todays_scans }}">{{ kpis.todays_scans }}</h3>
+                            <span class="text-cyan fs-9 font-monospace"><i class="bi bi-activity me-1"></i>Real-time Telemetry</span>
+                        </div>
+                        <div class="feature-icon" style="background: rgba(16, 244, 156, 0.1); border-color: rgba(16, 244, 156, 0.25);">
+                            <i class="bi bi-activity text-emerald"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Average Risk Score Card -->
+            <div class="col-md-4">
+                <div class="cyber-card p-4 rounded-4 position-relative overflow-hidden h-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-white-50 fs-8 font-monospace text-uppercase tracking-wider">AVG RISK INDEX</span>
+                            <h3 class="display-6 fw-extrabold text-warning mt-1 mb-0">
+                                {{ kpis.avg_risk_score }}<span class="fs-6 text-white-50">/100</span>
+                            </h3>
+                            <span class="text-white-50 fs-9 font-monospace">Heuristic Threshold</span>
+                        </div>
+                        <div class="feature-icon" style="background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.25);">
+                            <i class="bi bi-exclamation-triangle text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry Feed & Risk Distribution Row -->
+        <div class="row g-4 mb-4">
+            <!-- Recent Activity List -->
+            <div class="col-xl-8">
+                <div class="cyber-card p-4 rounded-4 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom border-secondary">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-broadcast text-cyan fs-5"></i>
+                            <h4 class="h5 fw-bold text-white mb-0">Recent Threats & Telemetry</h4>
+                        </div>
+                        <span class="badge bg-emerald-transparent text-emerald font-monospace fs-8">LIVE FEED</span>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-cyber align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Time</th>
+                                    <th scope="col">Action Logged</th>
+                                    <th scope="col">Target Entity</th>
+                                    <th scope="col">Operator</th>
+                                    <th scope="col" class="text-end">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for act in recent_activity %}
+                                <tr>
+                                    <td class="font-monospace fs-8 text-white-50">{{ act.time }}</td>
+                                    <td class="fw-semibold text-white fs-7">{{ act.action }}</td>
+                                    <td><code class="text-cyan font-monospace fs-8">{{ act.target }}</code></td>
+                                    <td class="fs-8 text-white-50">{{ act.user }}</td>
+                                    <td class="text-end">
+                                        <span class="badge bg-{{ act.badge }}-transparent text-{{ act.badge }} font-monospace fs-9 text-uppercase">
+                                            {{ act.status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Distribution Chart (Chart.js) -->
+            <div class="col-xl-4">
+                <div class="cyber-card p-4 rounded-4 h-100 d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-pie-chart text-cyan fs-5"></i>
+                            <h4 class="h5 fw-bold text-white mb-0">Severity Matrix</h4>
+                        </div>
+                        <span class="text-white-50 fs-8 font-monospace">SOC METRIC</span>
+                    </div>
+                    
+                    <div class="chart-container py-2 flex-grow-1 d-flex align-items-center justify-content-center">
+                        <canvas id="riskDistributionChart"
+                                data-critical="{{ risk_distribution.critical }}"
+                                data-high="{{ risk_distribution.high }}"
+                                data-medium="{{ risk_distribution.medium }}"
+                                data-low="{{ risk_distribution.low }}"
+                                data-info="{{ risk_distribution.info }}"></canvas>
+                    </div>
+                    
+                    <div class="mt-3 row g-2 text-center fs-8 pt-2 border-top border-secondary font-monospace">
+                        <div class="col-4">
+                            <span class="d-block text-danger fw-semibold"><i class="bi bi-circle-fill me-1 fs-9"></i>Crit ({{ risk_distribution.critical }})</span>
+                        </div>
+                        <div class="col-4">
+                            <span class="d-block text-warning fw-semibold"><i class="bi bi-circle-fill me-1 fs-9"></i>High ({{ risk_distribution.high }})</span>
+                        </div>
+                        <div class="col-4">
+                            <span class="d-block text-cyan fw-semibold"><i class="bi bi-circle-fill me-1 fs-9"></i>Med ({{ risk_distribution.medium }})</span>
+                        </div>
+                    </div>
+                    {% if risk_distribution.inconclusive is defined and risk_distribution.inconclusive > 0 %}
+                    <div class="mt-2 text-center fs-9 font-monospace text-white-50 border-top border-secondary pt-2">
+                        <i class="bi bi-question-circle text-secondary me-1"></i>Inconclusive Audits: <span class="text-white fw-bold">{{ risk_distribution.inconclusive }}</span> (excluded from score averages)
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Security Overview Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="cyber-card p-4 rounded-4" style="border-top: 1px solid rgba(139, 92, 246, 0.4) !important;">
+                    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom border-secondary flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="p-1.5 rounded-3 bg-purple-transparent">
+                                <i class="bi bi-robot text-purple fs-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="h5 fw-bold text-white mb-0">AI Security Overview</h4>
+                                <span class="text-white-50 fs-8">GenAI-Powered Vulnerability Synthesis</span>
+                            </div>
+                        </div>
+                        <span class="badge bg-purple-transparent text-purple font-monospace fs-8 px-3 py-1 rounded-pill">
+                            <i class="bi bi-stars me-1"></i>GEMINI COPILOT
+                        </span>
+                    </div>
+
+                    {% if latest_scan %}
+                        {% if has_ai %}
+                            <div class="row g-4">
+                                <!-- Left Column: Metadata & Summary -->
+                                <div class="col-lg-6">
+                                    <!-- Scan Meta Info -->
+                                    <div class="p-3 rounded-3 mb-3" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                                        <div class="row g-3 fs-7 text-muted">
+                                            <div class="col-6">
+                                                <span class="d-block text-muted fs-8 font-monospace text-uppercase">TARGET VECTOR:</span>
+                                                <code class="text-cyan font-monospace fw-bold fs-7">{{ latest_scan.target_destination if scan_type == 'website' else latest_scan.ip_address }}</code>
+                                            </div>
+                                            <div class="col-6">
+                                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase">AUDIT PROFILE:</span>
+                                                <span class="text-white fw-bold text-uppercase font-monospace">{{ scan_type }}</span>
+                                            </div>
+                                            <div class="col-6">
+                                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase">EXECUTION TIMESTAMP:</span>
+                                                <span class="text-white font-monospace fs-8">{{ latest_scan.completed_at.strftime('%Y-%m-%d %H:%M UTC') if latest_scan.completed_at else 'Unknown' }}</span>
+                                            </div>
+                                            <div class="col-6">
+                                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase">HEURISTIC SCORE:</span>
+                                                {% if scan_type == 'website' %}
+                                                    {% set score = latest_scan.security_score if latest_scan.security_score is not none else 0 %}
+                                                    {% set score_color = 'emerald' if score >= 85 else 'warning' if score >= 50 else 'danger' %}
+                                                    <span class="text-{{ score_color }} fw-bold font-monospace fs-6">{{ score }}/100</span>
+                                                {% else %}
+                                                    {% set badge_color = 'danger' if latest_scan.risk_level == 'High' else 'warning' if latest_scan.risk_level == 'Medium' else 'secondary' if latest_scan.risk_level == 'Inconclusive' else 'emerald' %}
+                                                    <span class="text-{{ badge_color }} fw-bold text-uppercase font-monospace">{{ latest_scan.risk_level }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-12 border-top border-secondary pt-2.5">
+                                                <span class="d-block text-white-50 fs-8 font-monospace text-uppercase mb-1">AI OVERALL RISK LEVEL:</span>
+                                                {% set risk_color = 'danger' if ai_data.overall_risk.lower() == 'critical' or ai_data.overall_risk.lower() == 'high' else 'warning' if ai_data.overall_risk.lower() == 'medium' else 'cyan' if ai_data.overall_risk.lower() == 'low' else 'emerald' %}
+                                                <span class="badge bg-{{ risk_color }}-transparent text-{{ risk_color }} text-uppercase fs-8 font-monospace">{{ ai_data.overall_risk }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Executive Summary -->
+                                    <div class="p-3 rounded-3" style="background: rgba(139, 92, 246, 0.04); border: 1px solid rgba(139, 92, 246, 0.2);">
+                                        <span class="d-block text-purple fs-8 font-monospace fw-semibold text-uppercase tracking-wider mb-1">
+                                            <i class="bi bi-card-text me-1"></i>Executive AI Summary
+                                        </span>
+                                        <p class="text-white fs-7 mb-0 lh-base">{{ ai_data.executive_summary }}</p>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: Findings, Recommendations, Priorities -->
+                                <div class="col-lg-6">
+                                    <div class="accordion accordion-cyber" id="aiDetailsAccordion">
+                                        <!-- Top Critical Findings -->
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="headingFindings">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFindings" aria-expanded="true" aria-controls="collapseFindings">
+                                                    <i class="bi bi-exclamation-octagon-fill text-danger me-2"></i>Critical Findings ({{ ai_data.critical_findings|length }})
+                                                </button>
+                                            </h2>
+                                            <div id="collapseFindings" class="accordion-collapse collapse show" aria-labelledby="headingFindings" data-bs-parent="#aiDetailsAccordion">
+                                                <div class="accordion-body text-white-50 fs-7 font-monospace">
+                                                    {% if ai_data.critical_findings %}
+                                                        <ul class="list-unstyled mb-0">
+                                                            {% for finding in ai_data.critical_findings %}
+                                                                <li class="mb-2 d-flex align-items-start gap-2">
+                                                                    <i class="bi bi-x-circle-fill text-danger mt-1 fs-8"></i>
+                                                                    <span>{{ finding }}</span>
+                                                                </li>
+                                                            {% endfor %}
+                                                        </ul>
+                                                    {% else %}
+                                                        <p class="mb-0 text-white-50">No critical findings reported by AI.</p>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Top Recommendations -->
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="headingRecommendations">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRecommendations" aria-expanded="false" aria-controls="collapseRecommendations">
+                                                    <i class="bi bi-lightbulb-fill text-cyan me-2"></i>Strategic Recommendations ({{ ai_data.recommendations|length }})
+                                                </button>
+                                            </h2>
+                                            <div id="collapseRecommendations" class="accordion-collapse collapse" aria-labelledby="headingRecommendations" data-bs-parent="#aiDetailsAccordion">
+                                                <div class="accordion-body text-white-50 fs-7 font-monospace">
+                                                    {% if ai_data.recommendations %}
+                                                        <ul class="list-unstyled mb-0">
+                                                            {% for rec in ai_data.recommendations %}
+                                                                <li class="mb-2 d-flex align-items-start gap-2">
+                                                                    <i class="bi bi-check2-circle text-cyan mt-1 fs-8"></i>
+                                                                    <span>{{ rec }}</span>
+                                                                </li>
+                                                            {% endfor %}
+                                                        </ul>
+                                                    {% else %}
+                                                        <p class="mb-0 text-white-50">No specific recommendations compiled.</p>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Remediation Priority -->
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="headingPriority">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePriority" aria-expanded="false" aria-controls="collapsePriority">
+                                                    <i class="bi bi-sort-down text-warning me-2"></i>Remediation Action Matrix ({{ ai_data.remediation_priority|length }})
+                                                </button>
+                                            </h2>
+                                            <div id="collapsePriority" class="accordion-collapse collapse" aria-labelledby="headingPriority" data-bs-parent="#aiDetailsAccordion">
+                                                <div class="accordion-body text-white-50 fs-7">
+                                                    {% if ai_data.remediation_priority %}
+                                                        <div class="d-flex flex-column gap-2">
+                                                            {% for item in ai_data.remediation_priority %}
+                                                                {% set prio_color = 'danger' if item.priority.lower() == 'critical' or item.priority.lower() == 'high' else 'warning' if item.priority.lower() == 'medium' else 'cyan' %}
+                                                                <div class="p-2.5 rounded-3" style="background: rgba(240, 249, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.9);">
+                                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                        <span class="fw-bold fs-8 font-monospace" style="color: #0f172a;">{{ item.finding }}</span>
+                                                                        <span class="badge bg-{{ prio_color }}-transparent text-{{ prio_color }} font-monospace fs-9 text-uppercase">{{ item.priority }}</span>
+                                                                    </div>
+                                                                    <p class="text-muted fs-8 mb-0"><span class="text-emerald fw-semibold">Remedy:</span> {{ item.remediation }}</p>
+                                                                </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% else %}
+                                                        <p class="mb-0 text-white-50">No priority items mapped.</p>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Link to view full details -->
+                                    <div class="mt-3 text-end">
+                                        {% if scan_type == 'website' %}
+                                            <a href="{{ url_for('scanner.results', uuid=latest_scan.uuid) }}" class="btn btn-outline-emerald py-1.5 px-4 rounded-pill fw-semibold btn-sm">
+                                                <i class="bi bi-eye me-1.5"></i>Inspect Full Matrix
+                                            </a>
+                                        {% else %}
+                                            <a href="{{ url_for('network_scanner.results', uuid=latest_scan.uuid) }}" class="btn btn-outline-emerald py-1.5 px-4 rounded-pill fw-semibold btn-sm">
+                                                <i class="bi bi-eye me-1.5"></i>Inspect Full Matrix
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <!-- AI Unavailable display with button to analyze -->
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 p-3 rounded-3" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25);">
+                                <div class="text-warning fs-7 d-flex align-items-center gap-2">
+                                    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                                    <div>
+                                        <strong>AI Analysis Unavailable:</strong> Automated AI threat intelligence has not been generated for this scan yet.
+                                    </div>
+                                </div>
+                                <form method="POST" action="{% if scan_type == 'website' %}{{ url_for('scanner.trigger_ai', uuid=latest_scan.uuid) }}{% else %}{{ url_for('network_scanner.trigger_ai', uuid=latest_scan.uuid) }}{% endif %}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-cyber-violet px-4 py-2 rounded-pill fw-semibold btn-sm">
+                                        <i class="bi bi-robot me-1.5"></i>Analyze Scan
+                                    </button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <!-- No security scans found state -->
+                        <div class="text-center py-4 text-white-50">
+                            <div class="feature-icon mx-auto mb-3" style="background: rgba(255, 255, 255, 0.05);">
+                                <i class="bi bi-shield-slash fs-3 text-white-50"></i>
+                            </div>
+                            <h5 class="text-white fw-bold mb-1">No Completed Scans Found</h5>
+                            <p class="fs-7 mb-4">Execute a Web or Network vulnerability assessment to compile automated AI threat intelligence reports.</p>
+                            <div class="d-flex justify-content-center gap-2">
+                                <a href="{{ url_for('scanner.index') }}" class="btn btn-emerald px-4 py-2 rounded-pill fw-semibold btn-sm">
+                                    <i class="bi bi-shield-check me-1.5"></i>Run Web Audit
+                                </a>
+                                <a href="{{ url_for('network_scanner.index') }}" class="btn btn-outline-emerald px-4 py-2 rounded-pill fw-semibold btn-sm">
+                                    <i class="bi bi-broadcast me-1.5"></i>Run Network Audit
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Latest Reports Grid -->
+        <div class="row">
+            <div class="col-12">
+                <div class="cyber-card p-4 rounded-4">
+                    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom border-secondary">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-file-earmark-zip text-cyan fs-5"></i>
+                            <h4 class="h5 fw-bold text-white mb-0">Latest Security Reports</h4>
+                        </div>
+                        <a href="{{ url_for('main.history') }}" class="text-cyan text-decoration-none fs-8 fw-semibold">
+                            View All Registries <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                    
+                    <div class="row g-3">
+                        {% for report in latest_reports %}
+                        <div class="col-lg-4">
+                            <div class="p-3 rounded-3 border border-secondary h-100 d-flex flex-column justify-content-between transition-all hover-translate-y" style="background: rgba(5, 8, 16, 0.7);">
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <span class="badge bg-{{ report.badge }}-transparent text-{{ report.badge }} font-monospace fs-9 text-uppercase">{{ report.severity }}</span>
+                                        <span class="text-white-50 font-monospace fs-9">{{ report.date }}</span>
+                                    </div>
+                                    <h5 class="text-white fw-bold fs-7 mb-1">{{ report.title }}</h5>
+                                    <p class="text-white-50 fs-8 mb-3 font-monospace">{{ report.findings }} findings cataloged</p>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="{{ url_for('scanner.results', uuid=report.uuid) }}" class="btn btn-outline-light btn-sm py-1 px-3 fs-9 rounded-pill">
+                                        <i class="bi bi-eye-fill me-1"></i>View
+                                    </a>
+                                    <a href="{{ url_for('scanner.download_pdf', uuid=report.uuid) }}" class="btn btn-outline-emerald btn-sm py-1 px-3 fs-9 rounded-pill">
+                                        <i class="bi bi-download me-1"></i>PDF
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Include Chart.js -->
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const chartEl = document.getElementById('riskDistributionChart');
+    if (!chartEl) return;
+    const ctx = chartEl.getContext('2d');
+    
+    const criticalCount = parseInt(chartEl.dataset.critical) || 0;
+    const highCount = parseInt(chartEl.dataset.high) || 0;
+    const mediumCount = parseInt(chartEl.dataset.medium) || 0;
+    const lowCount = parseInt(chartEl.dataset.low) || 0;
+    const infoCount = parseInt(chartEl.dataset.info) || 0;
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Critical', 'High', 'Medium', 'Low', 'Info'],
+            datasets: [{
+                data: [criticalCount, highCount, mediumCount, lowCount, infoCount],
+                backgroundColor: [
+                    '#ff3366', // Critical Neon Crimson
+                    '#f59e0b', // High Solar Amber
+                    '#00f2fe', // Medium Electric Cyan
+                    '#10f49c', // Low Shield Mint
+                    '#64748b'  // Info Slate
+                ],
+                borderColor: '#ffffff',
+                borderWidth: 3,
+                hoverOffset: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                    titleColor: '#0284c7',
+                    bodyColor: '#0f172a',
+                    borderColor: 'rgba(186, 230, 253, 0.95)',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.label}: ${context.raw} threats`;
+                        }
+                    }
+                }
+            },
+            cutout: '72%'
+        }
+    });
+});
+</script>
+{% endblock %}

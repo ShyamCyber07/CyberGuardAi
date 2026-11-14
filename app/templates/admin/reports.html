@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Report Purge Console - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span>Admin Console</span>
+                </a>
+                <a href="{{ url_for('admin.users') }}" class="sidebar-nav-link">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Manage Users</span>
+                </a>
+                <a href="{{ url_for('admin.reports') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+                    <span>Manage Reports</span>
+                </a>
+                <a href="{{ url_for('admin.logs') }}" class="sidebar-nav-link">
+                    <i class="bi bi-journal-code"></i>
+                    <span>Platform Logs</span>
+                </a>
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot" style="background: var(--threat-critical); box-shadow: 0 0 8px var(--threat-critical);"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-danger fw-bold fs-7 text-uppercase font-monospace">ROOT ADMIN</span>
+                    <span class="badge bg-danger-transparent text-danger fs-9 px-2 py-0.5 rounded-pill">SUPERUSER</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot" style="background: var(--threat-critical); box-shadow: 0 0 8px var(--threat-critical);"></span>
+                    <span class="text-danger font-monospace fs-8 text-uppercase tracking-wider fw-bold">// REPORT STORAGE MANAGEMENT</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Compliance Report Purge Console</h1>
+                <p class="text-white-50 mb-0 fs-7">Audit, download, and manage compiled PDF artifacts stored within the encrypted filesystem storage.</p>
+            </div>
+        </div>
+
+        <!-- Reports Table -->
+        <div class="cyber-card p-4 rounded-4">
+            {% if reports %}
+                <div class="table-responsive">
+                    <table class="table table-cyber align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Report UUID</th>
+                                <th scope="col">Report Title</th>
+                                <th scope="col">Compilation Date</th>
+                                <th scope="col">Storage Status</th>
+                                <th scope="col" class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in reports %}
+                            <tr>
+                                <td class="font-monospace text-cyan fs-8">#{{ report.uuid[:10] }}...</td>
+                                <td class="fw-semibold text-white fs-8">{{ report.title }}</td>
+                                <td class="fs-8 text-white-50 font-monospace">{{ report.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                                <td>
+                                    <span class="badge bg-emerald-transparent text-emerald font-monospace text-uppercase fs-9">{{ report.status }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group gap-1.5">
+                                        {% if report.scan_id %}
+                                            <a href="{{ url_for('scanner.download_pdf', uuid=report.scan.uuid) }}" class="btn btn-outline-emerald btn-sm py-1 px-3 fs-9 rounded-pill" title="Download">
+                                                <i class="bi bi-download me-1"></i>Download
+                                            </a>
+                                        {% elif report.network_scan_id %}
+                                            <a href="{{ url_for('network_scanner.download_pdf', uuid=report.network_scan.uuid) }}" class="btn btn-outline-emerald btn-sm py-1 px-3 fs-9 rounded-pill" title="Download">
+                                                <i class="bi bi-download me-1"></i>Download
+                                            </a>
+                                        {% endif %}
+                                        
+                                        <!-- Purge Action Form -->
+                                        <form method="POST" action="{{ url_for('admin.delete_report', report_id=report.id) }}" onsubmit="return confirm('Permanently purge this PDF report from disk?');" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2 fs-9 rounded-circle" title="Purge File">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-5 text-center">
+                    <div class="feature-icon mx-auto mb-3" style="background: rgba(255, 255, 255, 0.04);">
+                        <i class="bi bi-file-earmark-pdf text-white-50 fs-3"></i>
+                    </div>
+                    <h4 class="text-white fw-bold mb-1">No Compliance Reports Cataloged</h4>
+                    <p class="text-white-50 fs-8 mb-0">Compiled PDF reports generated by operators will appear here for archival or purging.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

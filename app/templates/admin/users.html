@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Identity & Access Management - CyberGuard AI SOC{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="d-flex flex-column justify-content-between h-100">
+            <nav class="nav flex-column">
+                <span class="sidebar-category">Operations</span>
+                <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>SOC Overview</span>
+                </a>
+                <a href="{{ url_for('scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-globe"></i>
+                    <span>Web Audit</span>
+                </a>
+                <a href="{{ url_for('network_scanner.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Network Audit</span>
+                </a>
+                <a href="{{ url_for('password_security.index') }}" class="sidebar-nav-link">
+                    <i class="bi bi-key-fill"></i>
+                    <span>Password Vault</span>
+                </a>
+                <a href="{{ url_for('main.history') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Audit Registries</span>
+                </a>
+
+                <span class="sidebar-category text-danger">Administration</span>
+                <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-link">
+                    <i class="bi bi-cpu-fill text-danger"></i>
+                    <span>Admin Console</span>
+                </a>
+                <a href="{{ url_for('admin.users') }}" class="sidebar-nav-link active">
+                    <i class="bi bi-people-fill text-danger"></i>
+                    <span>Manage Users</span>
+                </a>
+                <a href="{{ url_for('admin.reports') }}" class="sidebar-nav-link">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    <span>Manage Reports</span>
+                </a>
+                <a href="{{ url_for('admin.logs') }}" class="sidebar-nav-link">
+                    <i class="bi bi-journal-code"></i>
+                    <span>Platform Logs</span>
+                </a>
+            </nav>
+            <div class="clearance-panel">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="text-white-50 fs-9 font-monospace text-uppercase">CLEARANCE</span>
+                    <span class="beacon-dot" style="background: var(--threat-critical); box-shadow: 0 0 8px var(--threat-critical);"></span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-danger fw-bold fs-7 text-uppercase font-monospace">ROOT ADMIN</span>
+                    <span class="badge bg-danger-transparent text-danger fs-9 px-2 py-0.5 rounded-pill">SUPERUSER</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="dashboard-content">
+        <!-- Header -->
+        <div class="row align-items-center justify-content-between mb-4 g-3 border-bottom border-secondary pb-3">
+            <div class="col-12">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="beacon-dot" style="background: var(--threat-critical); box-shadow: 0 0 8px var(--threat-critical);"></span>
+                    <span class="text-danger font-monospace fs-8 text-uppercase tracking-wider fw-bold">// IAM ACCESS DIRECTORY</span>
+                </div>
+                <h1 class="fw-extrabold text-white mt-1 mb-1">Identity & Access Control Management</h1>
+                <p class="text-white-50 mb-0 fs-7">Audit registered analyst accounts, adjust security clearance levels, and manage station authorities.</p>
+            </div>
+        </div>
+
+        <!-- Users Table -->
+        <div class="cyber-card p-4 rounded-4">
+            <div class="table-responsive">
+                <table class="table table-cyber align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">User ID</th>
+                            <th scope="col">Email Address</th>
+                            <th scope="col">Clearance Role</th>
+                            <th scope="col">Enrollment Date</th>
+                            <th scope="col" class="text-end">Update Clearance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td class="font-monospace text-white-50 fs-8">#{{ user.id }}</td>
+                            <td class="fw-bold text-white font-monospace fs-8">{{ user.email }}</td>
+                            <td>
+                                {% set badge_color = 'danger' if user.role == 'admin' else 'warning' if user.role == 'analyst' else 'emerald' %}
+                                <span class="badge bg-{{ badge_color }}-transparent text-{{ badge_color }} font-monospace text-uppercase fs-9">
+                                    {{ user.role }}
+                                </span>
+                            </td>
+                            <td class="fs-8 text-white-50 font-monospace">{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'N/A' }}</td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end align-items-center gap-2">
+                                    <!-- Change Role Form -->
+                                    <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id) }}" class="d-flex align-items-center gap-1.5">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <select name="role" class="form-select font-monospace py-1 fs-9" style="width: 105px;">
+                                            <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
+                                            <option value="analyst" {% if user.role == 'analyst' %}selected{% endif %}>Analyst</option>
+                                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-emerald btn-sm py-1 px-3 fs-9 rounded-pill" {% if user.id == current_user.id %}disabled title="Cannot change own role"{% endif %}>
+                                            Save
+                                        </button>
+                                    </form>
+
+                                    <!-- Delete Form -->
+                                    <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" onsubmit="return confirm('Permanently purge account for {{ user.email }}?');" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2 fs-9 rounded-circle" {% if user.id == current_user.id %}disabled title="Cannot delete self"{% endif %}>
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
