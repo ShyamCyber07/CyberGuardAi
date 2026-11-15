@@ -166,11 +166,12 @@ def test_scan_gemini_timeout(mock_post, app, db, test_users, mock_scanner_http):
     scan = Scan.query.filter_by(target_destination='https://example.com').first()
     assert scan is not None
     assert scan.status == 'completed'
-    assert scan.ai_response is None
+    assert scan.ai_response is not None
+    assert "Rule-based analysis (live AI unavailable: timeout)" in scan.ai_response.response_text
 
-    # Results page should render unavailable message
+    # Results page should render rule-based fallback message
     res_page = client.get(f'/scanner/results/{scan.uuid}')
-    assert b"AI Analysis Unavailable" in res_page.data
+    assert b"Rule-based analysis" in res_page.data
 
 
 @patch.dict(os.environ, {"GEMINI_API_KEY": "test_key"})
@@ -206,11 +207,12 @@ def test_scan_invalid_gemini_response(mock_post, app, db, test_users, mock_scann
     scan = Scan.query.filter_by(target_destination='https://example.com').first()
     assert scan is not None
     assert scan.status == 'completed'
-    assert scan.ai_response is None
+    assert scan.ai_response is not None
+    assert "Rule-based analysis (live AI unavailable: invalid JSON)" in scan.ai_response.response_text
 
-    # Results page should render unavailable message
+    # Results page should render rule-based fallback message
     res_page = client.get(f'/scanner/results/{scan.uuid}')
-    assert b"AI Analysis Unavailable" in res_page.data
+    assert b"Rule-based analysis" in res_page.data
 
 
 @patch.dict(os.environ, {"GEMINI_API_KEY": "test_quota_key_999"})

@@ -156,46 +156,667 @@ def parse_gemini_quota_error(response: requests.Response) -> Tuple[str, Optional
     return user_msg, retry_delay, is_daily
 
 
+BANNED_NETWORK_PATTERNS = (
+    re.compile(r'\bno\s+(?:critical|high|significant|known)\b', re.IGNORECASE),
+    re.compile(r'\bno\s+(?:vulnerabilit\w*|issues?)\b', re.IGNORECASE),
+    re.compile(r'\b(?:clean\s+bill|clean\s+scan|is\s+clean)\b', re.IGNORECASE),
+    re.compile(r'\brisk\s+posture\b', re.IGNORECASE),
+    re.compile(r'\b(?:is|are|remains?|appears?)\s+(?:secure|safe)\b', re.IGNORECASE),
+    re.compile(r'\b(?:vulnerabilit\w*)\s+(?:were|was)\s+(?:identified|detected|found)\b', re.IGNORECASE),
+)
+
 BANNED_NETWORK_PHRASES = (
     "no critical",
     "no high",
     "no vulnerabilities",
     "no issues",
-    "clean",
+    "clean bill",
+    "clean scan",
+    "is clean",
     "risk posture",
-    "secure",
-    "safe",
+    "is secure",
+    "is safe",
+    "vulnerabilities were identified",
+)
+
+RATING_WORDS = {'low', 'medium', 'high', 'critical', 'none'}
+
+UNITS = {'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'}
+TEENS = {'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'}
+TENS = {'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'}
+SCALE = {'hundred'}
+
+SPELLED_NUMBERS = set()
+SPELLED_NUMBERS.update(UNITS)
+SPELLED_NUMBERS.update(TEENS)
+SPELLED_NUMBERS.update(TENS)
+SPELLED_NUMBERS.update(SCALE)
+for t in TENS:
+    for u in UNITS:
+        if u != 'zero':
+            SPELLED_NUMBERS.add(f'{t}-{u}')
+            SPELLED_NUMBERS.add(f'{t} {u}')
+
+TARGET_KEYWORDS = {
+    'score', 'scores', 'rating', 'ratings', 'rated', 'rate',
+    'risk', 'risks', 'posture', 'postures', 'level', 'levels',
+    'severity', 'severities', 'band', 'bands', 'tier', 'tiers'
+}
+
+EXPLOIT_ATTACK_PATTERNS = (
+    re.compile(r'\bno\s+active\s+exploits?\b', re.IGNORECASE),
+    re.compile(r'\bexploits?\s+(?:were|was|are|is)?\s*(?:detected|identified|found|observed|seen)\b', re.IGNORECASE),
+    re.compile(r'\b(?:detected|identified|found|observed|seen)\s+(?:any\s+|active\s+)?exploits?\b', re.IGNORECASE),
+    re.compile(r'\bno\s+evidence\s+of\b', re.IGNORECASE),
+    re.compile(r'\b(?:was|were|is|are|remains?|been|not)\s+(?:not\s+)?exploited\b', re.IGNORECASE),
+    re.compile(r'\bnot\s+exploited\b', re.IGNORECASE),
+    re.compile(r'\bno\s+signs?\s+of\b', re.IGNORECASE),
+    re.compile(r'\bno\s+(?:known\s+|active\s+)?exploits?\b', re.IGNORECASE),
+    re.compile(r'\bno\s+(?:active\s+)?attacks?\s+(?:were|was|are|is)?\s*(?:detected|identified|found|observed)\b', re.IGNORECASE),
+    re.compile(r'\battacks?\s+(?:were|was|are|is)?\s*(?:detected|identified|found|observed)\b', re.IGNORECASE),
+    re.compile(r'\bno\s+(?:indication|evidence|signs?)\s+of\s+(?:malicious\s+|active\s+)?(?:compromise|exploitation|attacks?|exploits?)\b', re.IGNORECASE),
 )
 
 
-def filter_network_executive_summary(summary: str, n_ports: int, risk_level: str = "Low") -> str:
-    """Post-filter on AI/fallback network text.
-    If it contains any of: 'no critical', 'no high', 'no vulnerabilities', 'no issues',
-    'clean', 'risk posture', 'secure', 'safe', replace the whole executive summary with:
-    'N open ports were observed. The <RISK> exposure level is a rule-based rating of the observed ports; this scan did not test for vulnerabilities.'
+def get_short_failure_reason(error: Any) -> str:
     """
-    risk_str = (risk_level or "Low").upper()
-    deterministic_sentence = (
-        f"{n_ports} open ports were observed. The {risk_str} exposure level is a "
-        f"rule-based rating of the observed ports; this scan did not test for vulnerabilities."
+    Extract a concise, standardized failure reason for fallback labeling:
+    'Rule-based analysis (live AI unavailable: <short reason>)'
+    Handles: timeout, connection error, HTTP 5xx, HTTP 429, invalid JSON, validation error, etc.
+    """
+    if isinstance(error, int):
+        return f"HTTP {error}"
+    err_str = str(error) if error else "unknown error"
+    err_lower = err_str.lower()
+
+    # 1. HTTP 429 / Quota
+    if "429" in err_str or "quota" in err_lower or "resource_exhausted" in err_lower or isinstance(error, GeminiQuotaExceededError):
+        return "HTTP 429"
+
+    # 2. Timeout
+    if isinstance(error, NetworkTimeoutError) or "timeout" in err_lower or "timed out" in err_lower:
+        return "timeout"
+
+    # 3. HTTP 5xx
+    status_match = re.search(r'\b(?:status\s*(?:code\s*)?|HTTP\s*)(5\d{2})\b', err_str, re.IGNORECASE)
+    if status_match:
+        return f"HTTP {status_match.group(1)}"
+    for code in ("500", "502", "503", "504"):
+        if code in err_str:
+            return f"HTTP {code}"
+
+    # 4. Connection error
+    if isinstance(error, requests.exceptions.ConnectionError) or "connection" in err_lower or "connect" in err_lower or "network down" in err_lower:
+        return "connection error"
+
+    # 5. Schema validation error vs unparseable/invalid JSON
+    if isinstance(error, InvalidJSONResponseError) or "json" in err_lower or "schema" in err_lower or "validation" in err_lower:
+        if any(k in err_lower for k in ("missing required key", "invalid type", "schema", "validation", "overall_risk", "missing_keys")):
+            return "validation error"
+        return "invalid JSON"
+
+    if isinstance(error, MissingAPIKeyError) or "api key" in err_lower:
+        return "missing API key"
+
+    return "generation failure"
+
+
+def is_restricting_web_ports(text: str) -> bool:
+    """Check if recommendation advises restricting, blocking, closing, or firewalling port 80 or 443."""
+    if not text or not isinstance(text, str):
+        return False
+    has_web_port = bool(re.search(r'\b(?:port\s*)?(?:80|443)\b', text, re.IGNORECASE))
+    if not has_web_port:
+        return False
+    has_action = bool(re.search(r'\b(?:restrict|block|close|firewall|shut\s*down|disable)\b', text, re.IGNORECASE))
+    return has_action
+
+
+def is_ai_sentence_blocked(sentence: str) -> Tuple[bool, str]:
+    """
+    Sentence-level check:
+    DROP any sentence that has:
+    (a) a rating word (low|medium|high|critical|none, also spelled-out numbers like 'fifty-five')
+        or a number from 0 to 100 within 8 words of (score|rating|risk|posture|level|severity|band|tier), or
+    (b) a claim about exploits or attacks being absent or detected ('no active exploits',
+        'exploits were detected', 'no evidence of', 'not exploited', 'no signs of').
+    Ordinary uses ('a critical finding', 'high-severity header') that are not tied to a score or overall rating survive.
+    """
+    if not sentence or not isinstance(sentence, str):
+        return False, ""
+
+    s = sentence.strip()
+    if not s:
+        return False, ""
+
+    # 0. Authoritative / deterministic system sentences are never blocked
+    if (
+        "is a rule-based rating of the observed ports; this scan did not test for vulnerabilities" in s
+        or "open ports were observed; this scan did not test for vulnerabilities" in s
+        or s.startswith("Security Score:")
+        or s.startswith("Mode: Rule-based analysis")
+        or s.startswith("[Rule-based analysis")
+    ):
+        return False, ""
+
+    # Criteria (b): Claims about exploits or attacks being absent or detected
+    for pat in EXPLOIT_ATTACK_PATTERNS:
+        m = pat.search(s)
+        if m:
+            return True, f"exploit/attack claim '{m.group(0)}'"
+
+    # Criteria (a): Rating word or number within 8 words of target keywords
+    raw_tokens = re.findall(r'[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*', s)
+    tokens = [t.lower() for t in raw_tokens]
+
+    rating_or_number_indices = []
+    target_keyword_indices = []
+
+    for idx, tok in enumerate(tokens):
+        if tok in RATING_WORDS:
+            rating_or_number_indices.append((idx, tok, "rating_word"))
+            continue
+        if tok in SPELLED_NUMBERS:
+            rating_or_number_indices.append((idx, tok, "spelled_number"))
+            continue
+        clean_num = tok.split("/")[0]
+        if clean_num.isdigit():
+            val = int(clean_num)
+            if 0 <= val <= 100:
+                rating_or_number_indices.append((idx, tok, "number_0_100"))
+                continue
+
+    for idx, tok in enumerate(tokens):
+        base_tok = tok
+        if base_tok.endswith("s") and len(base_tok) > 4 and base_tok[:-1] in TARGET_KEYWORDS:
+            base_tok = base_tok[:-1]
+        if base_tok in TARGET_KEYWORDS or tok in TARGET_KEYWORDS:
+            target_keyword_indices.append((idx, tok))
+
+    blocked_by_pair = False
+    pair_reason = ""
+    for r_idx, r_tok, r_type in rating_or_number_indices:
+        for t_idx, t_tok in target_keyword_indices:
+            dist = abs(r_idx - t_idx)
+            if dist <= 8:
+                # Ordinary use exception:
+                # E.g. "high-severity header", "medium-severity finding", "critical-severity issue"
+                is_ordinary_severity = False
+                if r_tok in ("high", "medium", "low", "critical") and t_tok in ("severity", "severities"):
+                    ordinary_match = re.search(
+                        r'\b(?:a|an|the|is|as|this)?\s*' + re.escape(r_tok) + r'[-\s]severity\s+(?:header|finding|vulnerability|issue|misconfiguration|directive|flaw|item|check|alert|warning)\b',
+                        s,
+                        re.IGNORECASE
+                    )
+                    if ordinary_match:
+                        other_targets = [
+                            (i, tok) for i, tok in target_keyword_indices
+                            if tok not in ("severity", "severities")
+                        ]
+                        other_scores = [
+                            (i, tok, typ) for i, tok, typ in rating_or_number_indices
+                            if typ in ("number_0_100", "spelled_number") or (typ == "rating_word" and tok != r_tok)
+                        ]
+                        if not other_targets and not other_scores:
+                            is_ordinary_severity = True
+
+                if not is_ordinary_severity:
+                    blocked_by_pair = True
+                    pair_reason = f"rating/number '{r_tok}' within {dist} words of '{t_tok}'"
+                    break
+        if blocked_by_pair:
+            break
+
+    if blocked_by_pair:
+        return True, pair_reason
+
+    return False, ""
+
+
+def check_ai_text_blocked(
+    text: str,
+    authoritative_score: Optional[int] = None,
+    authoritative_risk: Optional[str] = None,
+    scan_type: str = "website"
+) -> Tuple[bool, str]:
+    """
+    Checks if a given AI text block is blocked due to banned assurance phrases,
+    banned score/rating claims, or exploit/attack claims.
+    Returns (is_blocked, reason).
+    """
+    if not text or not isinstance(text, str):
+        return False, ""
+
+    stype = (scan_type or "").strip().lower()
+
+    # 1. Banned network patterns (only for network scans)
+    if stype == "network":
+        for pat in BANNED_NETWORK_PATTERNS:
+            m = pat.search(text)
+            if m:
+                return True, f"banned network assurance claim '{m.group(0)}'"
+
+    # 2. Sentence-level check
+    raw_sentences = re.split(r'(?<=[.!?])\s+|\r?\n+', text)
+    for s in raw_sentences:
+        s_clean = s.strip()
+        if not s_clean:
+            continue
+        blocked, reason = is_ai_sentence_blocked(s_clean)
+        if blocked:
+            return True, reason
+
+    return False, ""
+
+
+def find_original_remediation(item: Dict[str, Any], findings: Optional[Any], scan_type: str = "website") -> str:
+    """
+    Find the original rule-based remediation text for a given port or finding.
+    Used when an AI action step is blocked, replacing it with authoritative rule-based guidance.
+    """
+    stype = (scan_type or "").strip().lower()
+    finding_name = str(item.get("finding", "") if isinstance(item, dict) else item)
+
+    # 1. Look for port number in finding_name
+    port_num = None
+    m = re.search(r'\b(?:port\s*)?(\d{1,5})\b', finding_name, re.IGNORECASE)
+    if m:
+        try:
+            port_num = int(m.group(1))
+        except ValueError:
+            pass
+
+    # 2. Check findings collection
+    if findings:
+        for f in findings:
+            if stype == "network" and port_num is not None:
+                f_port = getattr(f, "port", None) if hasattr(f, "port") else (f.get("port") if isinstance(f, dict) else None)
+                if f_port is not None:
+                    try:
+                        if int(f_port) == port_num:
+                            rem = getattr(f, "remediation", None) if hasattr(f, "remediation") else (f.get("remediation") if isinstance(f, dict) else None)
+                            if rem:
+                                return rem
+                    except (ValueError, TypeError):
+                        pass
+
+            f_name = ""
+            if hasattr(f, "vulnerability_name") and f.vulnerability_name:
+                f_name = f.vulnerability_name
+            elif hasattr(f, "service_name") and f.service_name:
+                f_name = f.service_name
+            elif isinstance(f, dict):
+                f_name = f.get("name") or f.get("vulnerability_name") or f.get("service_name") or ""
+
+            if f_name and (f_name.lower() in finding_name.lower() or finding_name.lower() in f_name.lower()):
+                rem = getattr(f, "remediation", None) if hasattr(f, "remediation") else (f.get("remediation") if isinstance(f, dict) else None)
+                if rem:
+                    return rem
+
+    # 3. Known standard rule-based fallbacks
+    if stype == "network":
+        if port_num == 80:
+            return "Ensure HTTP traffic redirects automatically to secure HTTPS configurations."
+        elif port_num == 443:
+            return "Monitor SSL configurations and TLS handshake setups periodically."
+        elif port_num == 22:
+            return "Restrict SSH source IP addresses using firewalls and disable password logins."
+        elif port_num == 3389:
+            return "Disable public facing RDP listeners. Force VPN usage to access Remote Desktop."
+        elif port_num in (8080, 8443):
+            return "Disable public access to admin ports and use SSL/TLS."
+        return "Restrict access to trusted hosts using local firewall configurations."
+    else:
+        return "Implement standard defensive controls and recommended security headers."
+
+
+def get_deterministic_sentence(
+    authoritative_score: Optional[int] = None,
+    authoritative_risk: Optional[str] = None,
+    scan_type: str = "website",
+    findings: Optional[Any] = None,
+    n_ports: Optional[int] = None,
+    is_summary: bool = False
+) -> str:
+    """Build the single authoritative deterministic sentence for network or website scans."""
+    stype = (scan_type or "").strip().lower()
+    auth_risk_str = (str(authoritative_risk) if authoritative_risk is not None else "").strip()
+    auth_risk_norm = auth_risk_str.upper()
+
+    if stype == "network":
+        n_p = n_ports
+        if n_p is None:
+            n_p = len(findings) if findings is not None else 0
+        risk_str = auth_risk_norm or "LOW"
+        if is_summary:
+            return (
+                f"{n_p} open ports were observed. The {risk_str} exposure level is a "
+                f"rule-based rating of the observed ports; this scan did not test for vulnerabilities."
+            )
+        else:
+            return (
+                f"{n_p} open ports were observed; this scan did not test for vulnerabilities."
+            )
+    else:
+        auth_score = int(authoritative_score) if authoritative_score is not None else 100
+        auth_risk = auth_risk_norm or "LOW"
+        missing_items = []
+        if findings:
+            for f in findings:
+                if isinstance(f, dict):
+                    raw_name = f.get("name") or f.get("vulnerability_name") or ""
+                elif hasattr(f, "vulnerability_name"):
+                    raw_name = f.vulnerability_name or ""
+                elif isinstance(f, str):
+                    raw_name = f
+                else:
+                    raw_name = str(f)
+
+                clean_name = re.sub(r'^(?:Missing\s+)', '', raw_name, flags=re.IGNORECASE)
+                clean_name = re.sub(r'\s+Header$', '', clean_name, flags=re.IGNORECASE).strip()
+                if clean_name and clean_name not in missing_items:
+                    missing_items.append(clean_name)
+
+        if missing_items:
+            items_str = ", ".join(missing_items[:5])
+            return f"Security Score: {auth_score}/100, Risk Level: {auth_risk}. Missing headers: {items_str}."
+        else:
+            return f"Security Score: {auth_score}/100, Risk Level: {auth_risk}."
+
+
+def filter_ai_text_sentences(
+    text: str,
+    authoritative_score: Optional[int] = None,
+    authoritative_risk: Optional[str] = None,
+    scan_type: str = "website",
+    findings: Optional[Any] = None,
+    n_ports: Optional[int] = None,
+    is_summary: bool = False,
+    is_cached_read: bool = False
+) -> str:
+    """
+    Sentence-level filter on every AI text block:
+    Splits into sentences and drops any sentence that has:
+    (a) a rating word (low|medium|high|critical|none, also spelled-out numbers like 'fifty-five')
+        or a number from 0 to 100 within 8 words of (score|rating|risk|posture|level|severity|band|tier), or
+    (b) a claim about exploits or attacks being absent or detected ('no active exploits', 'exploits were detected',
+        'no evidence of', 'not exploited', 'no signs of').
+    Ordinary uses ('a critical finding', 'high-severity header') that are not tied to a score or overall rating survive.
+    If dropping sentences empties a block, returns the deterministic sentence once.
+    Logs at DEBUG when is_cached_read=True, else at WARNING.
+    """
+    if not text or not isinstance(text, str):
+        return text or ""
+
+    stype = (scan_type or "").strip().lower()
+    log_fn = logger.debug if is_cached_read else logger.warning
+
+    raw_sentences = re.split(r'(?<=[.!?])\s+|\r?\n+', text)
+    surviving = []
+    dropped_count = 0
+
+    for s in raw_sentences:
+        s_clean = s.strip()
+        if not s_clean:
+            continue
+        blocked, reason = is_ai_sentence_blocked(s_clean)
+        if not blocked and stype == "network":
+            for pat in BANNED_NETWORK_PATTERNS:
+                m = pat.search(s_clean)
+                if m:
+                    blocked = True
+                    reason = f"banned network assurance claim '{m.group(0)}'"
+                    break
+
+        if blocked:
+            dropped_count += 1
+            log_fn(f"Dropped AI sentence due to {reason}")
+        else:
+            surviving.append(s_clean)
+
+    if surviving:
+        return " ".join(surviving)
+
+    log_fn("All sentences in AI text block dropped; replacing with authoritative deterministic sentence.")
+    return get_deterministic_sentence(
+        authoritative_score=authoritative_score,
+        authoritative_risk=authoritative_risk,
+        scan_type=stype,
+        findings=findings,
+        n_ports=n_ports,
+        is_summary=is_summary
     )
-    if not summary:
-        return deterministic_sentence
 
-    summary_lower = summary.lower()
-    if any(phrase in summary_lower for phrase in BANNED_NETWORK_PHRASES):
-        return deterministic_sentence
 
-    return summary
+def validate_ai_text(
+    text: str,
+    authoritative_score: Optional[int] = None,
+    authoritative_risk: Optional[str] = None,
+    scan_type: str = "website",
+    findings: Optional[Any] = None,
+    n_ports: Optional[int] = None,
+    is_summary: bool = False,
+    is_cached_read: bool = False
+) -> str:
+    """
+    Validates AI free text using sentence-level filtering to ensure it cannot state scores or ratings.
+    """
+    return filter_ai_text_sentences(
+        text,
+        authoritative_score=authoritative_score,
+        authoritative_risk=authoritative_risk,
+        scan_type=scan_type,
+        findings=findings,
+        n_ports=n_ports,
+        is_summary=is_summary,
+        is_cached_read=is_cached_read
+    )
+
+
+def sanitize_ai_data(
+    ai_data: Dict[str, Any],
+    authoritative_score: Optional[int],
+    authoritative_risk: Optional[str],
+    scan_type: str,
+    findings: Optional[Any] = None,
+    n_ports: Optional[int] = None,
+    is_cached_read: bool = False
+) -> Dict[str, Any]:
+    """
+    Sanitize all text fields in an AI response dict to ensure zero contradictions with authoritative results.
+    - Sentence-level filtering drops any sentences asserting scores, ratings, or exploit claims.
+    - Dropped blocked list items in critical_findings and recommendations.
+    - If critical_findings becomes empty, show the deterministic sentence once.
+    - NEVER put the deterministic sentence into a recommendation or action-step slot.
+    - For remediation action steps, blocked AI text is replaced by the original rule-based text for that port.
+    - Guarantees the deterministic sentence appears at most once per report section.
+    - Logs at DEBUG when is_cached_read=True, else at WARNING.
+    """
+    if not isinstance(ai_data, dict):
+        return ai_data
+
+    stype = (scan_type or "").strip().lower()
+    log_fn = logger.debug if is_cached_read else logger.warning
+
+    if authoritative_score is not None:
+        ai_data["security_score"] = int(authoritative_score)
+    if authoritative_risk is not None:
+        ai_data["overall_risk"] = str(authoritative_risk).capitalize()
+
+    if stype == "network" and n_ports is None:
+        n_ports = len(findings) if findings is not None else 0
+
+    # 1. Executive Summary
+    if "executive_summary" in ai_data and isinstance(ai_data["executive_summary"], str):
+        ai_data["executive_summary"] = validate_ai_text(
+            ai_data["executive_summary"],
+            authoritative_score=authoritative_score,
+            authoritative_risk=authoritative_risk,
+            scan_type=stype,
+            findings=findings,
+            n_ports=n_ports,
+            is_summary=True,
+            is_cached_read=is_cached_read
+        )
+
+    # 2. Critical Findings Implications
+    if "critical_findings" in ai_data and isinstance(ai_data["critical_findings"], list):
+        sanitized_crit = []
+        for cf in ai_data["critical_findings"]:
+            if isinstance(cf, str):
+                filtered_cf = filter_ai_text_sentences(
+                    cf,
+                    authoritative_score=authoritative_score,
+                    authoritative_risk=authoritative_risk,
+                    scan_type=stype,
+                    findings=findings,
+                    n_ports=n_ports,
+                    is_summary=False,
+                    is_cached_read=is_cached_read
+                )
+                blocked, reason = check_ai_text_blocked(
+                    cf,
+                    authoritative_score=authoritative_score,
+                    authoritative_risk=authoritative_risk,
+                    scan_type=stype
+                )
+                if blocked and (filtered_cf.startswith("Security Score:") or "this scan did not test for vulnerabilities" in filtered_cf):
+                    log_fn(f"Dropping critical finding item due to {reason}")
+                    continue
+                sanitized_crit.append(filtered_cf)
+        if not sanitized_crit:
+            # Whole list became empty -> show the deterministic sentence once
+            if stype == "network":
+                n_p = n_ports if n_ports is not None else (len(findings) if findings is not None else 0)
+                sanitized_crit.append(f"{n_p} open ports were observed; this scan did not test for vulnerabilities.")
+            else:
+                auth_score = int(authoritative_score) if authoritative_score is not None else 100
+                auth_risk = (str(authoritative_risk) if authoritative_risk is not None else "LOW").upper()
+                sanitized_crit.append(f"Security Score: {auth_score}/100, Risk Level: {auth_risk}.")
+        ai_data["critical_findings"] = sanitized_crit
+
+    # 3. Recommendations
+    if "recommendations" in ai_data and isinstance(ai_data["recommendations"], list):
+        sanitized_recs = []
+        for rec in ai_data["recommendations"]:
+            if isinstance(rec, str):
+                if stype == "network" and is_restricting_web_ports(rec):
+                    log_fn("Dropped network recommendation that advises restricting, blocking or closing ports 80/443")
+                    continue
+                blocked, reason = check_ai_text_blocked(
+                    rec,
+                    authoritative_score=authoritative_score,
+                    authoritative_risk=authoritative_risk,
+                    scan_type=stype
+                )
+                if blocked:
+                    log_fn(f"Dropping recommendation item due to {reason}")
+                    continue
+                # Explicit rule: NEVER put the deterministic sentence into a recommendation slot
+                if "did not test for vulnerabilities" in rec or "Security Score:" in rec:
+                    log_fn("Dropped deterministic sentence placeholder found in recommendation slot")
+                    continue
+                filtered_rec = filter_ai_text_sentences(
+                    rec,
+                    authoritative_score=authoritative_score,
+                    authoritative_risk=authoritative_risk,
+                    scan_type=stype,
+                    findings=findings,
+                    n_ports=n_ports,
+                    is_summary=False,
+                    is_cached_read=is_cached_read
+                )
+                if "did not test for vulnerabilities" in filtered_rec or "Security Score:" in filtered_rec:
+                    continue
+                sanitized_recs.append(filtered_rec)
+        if not sanitized_recs:
+            if stype == "network":
+                sanitized_recs.append("Verify that each observed exposure is intended for this host's role.")
+            else:
+                sanitized_recs.append("Apply standard defensive hardening and implement recommended security headers.")
+        ai_data["recommendations"] = sanitized_recs
+
+    # 4. Remediation Priority
+    if "remediation_priority" in ai_data and isinstance(ai_data["remediation_priority"], list):
+        sanitized_prio = []
+        for item in ai_data["remediation_priority"]:
+            if isinstance(item, dict):
+                finding_str = item.get("finding", "")
+                rem_str = item.get("remediation", "")
+
+                # If finding itself is blocked, drop the item
+                f_blocked, f_reason = check_ai_text_blocked(
+                    finding_str,
+                    authoritative_score=authoritative_score,
+                    authoritative_risk=authoritative_risk,
+                    scan_type=stype
+                )
+                if f_blocked:
+                    log_fn(f"Dropping remediation priority item due to blocked finding ({f_reason})")
+                    continue
+
+                # Check if remediation action step is blocked, advises restricting web ports, or contains placeholder
+                rem_blocked = False
+                if stype == "network" and is_restricting_web_ports(rem_str):
+                    log_fn("Network remediation step advising restriction of ports 80/443 replaced with original text")
+                    rem_blocked = True
+                else:
+                    b, r_reason = check_ai_text_blocked(
+                        rem_str,
+                        authoritative_score=authoritative_score,
+                        authoritative_risk=authoritative_risk,
+                        scan_type=stype
+                    )
+                    if b or "did not test for vulnerabilities" in rem_str or "Security Score:" in rem_str:
+                        log_fn(f"Remediation step replaced with original text due to: {r_reason or 'placeholder found'}")
+                        rem_blocked = True
+
+                if rem_blocked:
+                    # For remediation action steps, a blocked AI text is replaced by the original rule-based text for that port
+                    orig_rem = find_original_remediation(item, findings, scan_type=stype)
+                    item["remediation"] = orig_rem
+                else:
+                    item["remediation"] = filter_ai_text_sentences(
+                        rem_str,
+                        authoritative_score=authoritative_score,
+                        authoritative_risk=authoritative_risk,
+                        scan_type=stype,
+                        findings=findings,
+                        n_ports=n_ports,
+                        is_summary=False,
+                        is_cached_read=is_cached_read
+                    )
+
+                sanitized_prio.append(item)
+
+        ai_data["remediation_priority"] = sanitized_prio
+
+    return ai_data
+
+
+def filter_network_executive_summary(summary: str, n_ports: int, risk_level: str = "Low") -> str:
+    """Backward compatibility alias for validating network executive summary text."""
+    return validate_ai_text(
+        summary,
+        authoritative_score=None,
+        authoritative_risk=risk_level,
+        scan_type="network",
+        n_ports=n_ports,
+        is_summary=True
+    )
 
 
 def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quota limit reached") -> Dict[str, Any]:
     """
     Generate an offline rule-based heuristic assessment matching the standard AI response schema.
     Clearly tags the result with executive summary labeling and model_used='rule-based-fallback'.
+    Label format: 'Rule-based analysis (live AI unavailable: <short reason>)'
     """
     if not isinstance(scan_results, dict):
         scan_results = {}
+
+    short_reason = get_short_failure_reason(reason) if reason else "live AI unavailable"
+    fallback_label = f"Rule-based analysis (live AI unavailable: {short_reason})"
 
     target = scan_results.get("target") or "Unknown Target"
     scan_type = scan_results.get("scan_type") or "system"
@@ -220,30 +841,29 @@ def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quo
     score = max(0, min(100, score))
 
     # Overall risk determination
-    has_critical = any(str(f.get("severity", "")).lower() == "critical" for f in findings)
-    has_high = any(str(f.get("severity", "")).lower() == "high" for f in findings)
-    has_medium = any(str(f.get("severity", "")).lower() == "medium" for f in findings)
-
     is_network = (scan_results.get("scan_type") == "network")
 
     if not findings:
         if is_network:
             overall_risk = str(scan_results.get("overall_risk") or "Low").capitalize()
             critical_findings = []
-            recommendations = ["Continue routine perimeter monitoring and schedule regular multi-port audits."]
+            recommendations = [
+                "The role of the host is unknown. Do not recommend restricting, closing or firewalling ports. Recommend verifying that each observed exposure is intended."
+            ]
             remediation_priority = []
             summary = (
-                f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
-                "0 open ports were observed; this scan did not test for vulnerabilities."
+                f"[{fallback_label}] [Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
+                "0 open ports were observed; this scan did not test for vulnerabilities. The LOW exposure level is a "
+                "rule-based rating of the observed ports; this scan did not test for vulnerabilities."
             )
         else:
             overall_risk = "None"
             critical_findings = []
-            recommendations = ["Target configuration returned no high-risk observations. Continue routine monitoring."]
+            recommendations = ["Target configuration returned no critical observations. Continue routine monitoring."]
             remediation_priority = []
             summary = (
-                f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
-                f"Automated heuristic review confirms target '{target}' has no high-risk findings or exposed risks."
+                f"[{fallback_label}] [Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
+                f"Automated heuristic review confirms target '{target}' has zero detected security findings."
             )
     else:
         from app.models.scan import derive_risk
@@ -259,12 +879,17 @@ def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quo
 
         # Recommendations list
         recommendations = []
-        for f in findings:
-            remediation = f.get("remediation")
-            if remediation and remediation not in recommendations:
-                recommendations.append(remediation)
-        if not recommendations:
-            recommendations.append("Apply standard defensive hardening and restrict unnecessary listening endpoints.")
+        if is_network:
+            recommendations.append(
+                "The role of the host is unknown. Do not recommend restricting, closing or firewalling ports. Recommend verifying that each observed exposure is intended."
+            )
+        else:
+            for f in findings:
+                remediation = f.get("remediation")
+                if remediation and remediation not in recommendations:
+                    recommendations.append(remediation)
+            if not recommendations:
+                recommendations.append("Apply standard defensive hardening and restrict unnecessary listening endpoints.")
 
         # Remediation priority objects
         remediation_priority = []
@@ -275,19 +900,20 @@ def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quo
             remediation_priority.append({
                 "finding": str(f.get("name", "Detected Finding")),
                 "priority": prio,
-                "remediation": str(f.get("remediation", "Implement standard defensive controls."))
+                "remediation": str(f.get("remediation") or find_original_remediation(f, findings, scan_type="network" if is_network else "website"))
             })
 
         if is_network:
             summary = (
-                f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
-                f"{len(findings)} open ports were observed; this scan did not test for vulnerabilities."
+                f"[{fallback_label}] [Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
+                f"{len(findings)} open ports were observed; this scan did not test for vulnerabilities. The {overall_risk.upper()} exposure level is a "
+                f"rule-based rating of the observed ports; this scan did not test for vulnerabilities."
             )
         else:
             summary = (
-                f"[Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
-                f"Automated heuristic assessment cataloged {len(findings)} finding(s) on target '{target}'. "
-                f"Overall defensive posture is rated as {overall_risk}."
+                f"[{fallback_label}] [Rule-Based Fallback Analysis] Live Gemini AI analysis is currently unavailable ({reason}). "
+                f"Security Score: {score}/100, Risk Level: {overall_risk}. "
+                f"Automated heuristic assessment cataloged {len(findings)} finding(s) on target '{target}'."
             )
 
     # Use authoritative score and risk if supplied in scan_results
@@ -303,18 +929,19 @@ def generate_heuristic_fallback(scan_results: Dict[str, Any], reason: str = "Quo
         "critical_findings": critical_findings,
         "recommendations": recommendations,
         "remediation_priority": remediation_priority,
+        "fallback_label": fallback_label,
         "_fallback": True,
         "_model_used": "rule-based-fallback"
     }
 
-    if is_network:
-        fallback_payload["executive_summary"] = filter_network_executive_summary(
-            fallback_payload["executive_summary"],
-            len(findings),
-            overall_risk
-        )
-
-    return fallback_payload
+    return sanitize_ai_data(
+        fallback_payload,
+        authoritative_score=score,
+        authoritative_risk=overall_risk,
+        scan_type="network" if is_network else "website",
+        findings=findings,
+        n_ports=len(findings) if is_network else None
+    )
 
 
 def _get_cache_key(scan_results: Dict[str, Any], user_id: Optional[int] = None) -> str:
@@ -511,15 +1138,21 @@ class AIAnalysisService:
                 if "overall_risk" in scan_results and scan_results["overall_risk"] is not None:
                     parsed_json["overall_risk"] = str(scan_results["overall_risk"]).capitalize()
 
-        if scan_results and isinstance(scan_results, dict) and scan_results.get("scan_type") == "network":
-            findings = [f for f in scan_results.get("findings", []) if isinstance(f, dict)]
-            n_ports = len(findings)
-            risk = parsed_json.get("overall_risk") or scan_results.get("overall_risk") or "Low"
-            parsed_json["executive_summary"] = filter_network_executive_summary(
-                parsed_json.get("executive_summary", ""),
-                n_ports,
-                str(risk)
-            )
+        # Final pass: sanitize all text blocks to strictly prevent contradictions with authoritative results
+        auth_score = scan_results.get("security_score") if scan_results else parsed_json.get("security_score")
+        auth_risk = scan_results.get("overall_risk") if scan_results else parsed_json.get("overall_risk")
+        scan_type = scan_results.get("scan_type", "website") if scan_results else "website"
+        findings = scan_results.get("findings") if scan_results else None
+        n_ports = len(findings) if findings and scan_type == "network" else None
+
+        parsed_json = sanitize_ai_data(
+            parsed_json,
+            authoritative_score=auth_score,
+            authoritative_risk=auth_risk,
+            scan_type=scan_type,
+            findings=findings,
+            n_ports=n_ports
+        )
 
         return parsed_json
 
@@ -529,12 +1162,47 @@ class AIAnalysisService:
         scan_results: Dict[str, Any],
         model_name: str = None,
         fallback_on_quota: bool = True,
+        fallback_on_failure: bool = False,
         user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Analyzes the given structured scan results and returns a structured JSON analysis.
-        Gracefully falls back to rule-based analysis if Gemini quota is exhausted and fallback_on_quota is True.
+        Gracefully falls back to rule-based analysis if Gemini quota is exhausted and fallback_on_quota is True,
+        or on ANY generation failure if fallback_on_failure is True.
         """
+        if fallback_on_failure:
+            try:
+                return cls._analyze_scan_internal(
+                    scan_results=scan_results,
+                    model_name=model_name,
+                    fallback_on_quota=fallback_on_quota,
+                    user_id=user_id
+                )
+            except MissingAPIKeyError:
+                raise
+            except Exception as e:
+                short_reason = get_short_failure_reason(e)
+                logger.warning(
+                    f"Live AI analysis failed ({e}). Returning rule-based fallback labeled ({short_reason})."
+                )
+                fallback_data = generate_heuristic_fallback(scan_results, reason=short_reason)
+                return cls._validate_response(fallback_data, scan_results=scan_results)
+        else:
+            return cls._analyze_scan_internal(
+                scan_results=scan_results,
+                model_name=model_name,
+                fallback_on_quota=fallback_on_quota,
+                user_id=user_id
+            )
+
+    @classmethod
+    def _analyze_scan_internal(
+        cls,
+        scan_results: Dict[str, Any],
+        model_name: str = None,
+        fallback_on_quota: bool = True,
+        user_id: Optional[int] = None
+    ) -> Dict[str, Any]:
         # 1. API Key Validation
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
@@ -573,14 +1241,19 @@ class AIAnalysisService:
         target = scan_results.get("target") if isinstance(scan_results, dict) else None
         scan_type = scan_results.get("scan_type") if isinstance(scan_results, dict) else None
         findings = scan_results.get("findings") if isinstance(scan_results, dict) and isinstance(scan_results.get("findings"), list) else []
+        auth_score = scan_results.get("security_score") if isinstance(scan_results, dict) else None
+        auth_risk = scan_results.get("overall_risk") if isinstance(scan_results, dict) else None
+
+        score_info = f"- Authoritative Security Score: {auth_score}/100\n" if auth_score is not None else ""
+        risk_info = f"- Authoritative Risk Level: {auth_risk}\n" if auth_risk is not None else ""
 
         prompt = f"""You are a Senior AI Engineer and Cybersecurity Architect.
 Your task is to analyze the security scanner results and generate a structured risk assessment report.
 
 ### SCAN INFO
-- Target Target: {target or 'Unknown Target'}
+- Target: {target or 'Unknown Target'}
 - Scan Type: {scan_type or 'Unknown Scan Type'}
-
+{score_info}{risk_info}
 ### SCAN FINDINGS
 """
         if scan_type == "network":
@@ -599,6 +1272,8 @@ Your task is to analyze the security scanner results and generate a structured r
 1. For network scans, you are strictly FORBIDDEN from making statements about vulnerabilities being found or not found.
 2. The allowed claim is: "{n_ports} open ports were observed; this scan did not test for vulnerabilities."
 3. Open ports are observed exposures, NOT confirmed vulnerabilities. Adhere strictly to the authoritative risk level.
+4. The role of the host is unknown. Do not recommend restricting, closing or firewalling ports. Recommend verifying that each observed exposure is intended.
+5. PROSE RESTRICTION: The authoritative values above are provided for context only. You must NOT state, quote, assert, or mention any score, rating, risk level (Critical, High, Medium, Low, None), or severity ranking in free text prose (executive_summary, critical_findings, recommendations, remediation action steps). Scores and risk ratings are authoritative scanner-level outputs displayed exclusively in report headers; your prose must focus only on technical explanations and remediation guidance.
 """
         else:
             if not findings:
@@ -616,6 +1291,7 @@ Your task is to analyze the security scanner results and generate a structured r
 ### CRITICAL COMPLIANCE RULES:
 1. You must ONLY analyze the provided scan findings. Under no circumstances may you invent, suggest, assume, or infer that other vulnerabilities or open ports exist.
 2. If no vulnerabilities are reported, rate the security score as 100, overall risk as 'None', and confirm that the target is well-secured.
+3. PROSE RESTRICTION: The authoritative values above are provided for context only. You must NOT state, quote, assert, or mention any score, rating, risk level (Critical, High, Medium, Low, None), or severity ranking in free text prose (executive_summary, critical_findings, recommendations, remediation action steps). Scores and risk ratings are authoritative scanner-level outputs displayed exclusively in report headers; your prose must focus only on technical explanations and remediation guidance.
 """
 
         if is_incomplete:
@@ -714,6 +1390,8 @@ Respond STRICTLY with a valid JSON object matching the following structure:
             response = requests.post(url, json=payload, headers=headers, timeout=cls.DEFAULT_TIMEOUT)
         except requests.exceptions.Timeout as e:
             raise NetworkTimeoutError(f"Connection to Gemini API timed out: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise GeminiAPIFailureError(f"Connection error to Gemini API: {e}")
         except requests.exceptions.RequestException as e:
             raise GeminiAPIFailureError(f"Gemini API request failed: {e}")
 

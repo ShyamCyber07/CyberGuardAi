@@ -6,7 +6,7 @@ import html
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -104,12 +104,78 @@ class PDFGeneratorService:
 
         if is_inconclusive:
             ai_data = None
-        elif is_network and ai_data:
-            # Force authoritative network scanner metrics
-            score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
-            net_score = 100 if not getattr(scan_obj, 'results', None) else score_map.get(scan_obj.risk_level, 70)
-            ai_data["overall_risk"] = scan_obj.risk_level
-            ai_data["security_score"] = net_score
+        else:
+            has_scan_data = False
+            if is_network:
+                has_scan_data = (getattr(scan_obj, 'status', None) == 'completed' and (bool(getattr(scan_obj, 'results', None)) or bool(getattr(scan_obj, 'evidence', None))))
+            else:
+                has_scan_data = (getattr(scan_obj, 'status', None) == 'completed' and (bool(getattr(scan_obj, 'results', None)) or bool(getattr(scan_obj, 'evidence_json', None))))
+
+            if not ai_data and has_scan_data:
+                from app.services.ai_service import generate_heuristic_fallback
+                if is_network:
+                    f_list = []
+                    for r in (getattr(scan_obj, 'results', None) or []):
+                        f_list.append({
+                            "name": f"Port {r.port}/{r.protocol} ({r.service_name})",
+                            "severity": r.severity,
+                            "description": f"Port {r.port} open",
+                            "remediation": r.remediation
+                        })
+                    score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
+                    net_score = 100 if not f_list else score_map.get(scan_obj.risk_level, 70)
+                    fallback_payload = {
+                        "target": scan_obj.ip_address,
+                        "scan_type": "network",
+                        "overall_risk": scan_obj.risk_level,
+                        "security_score": net_score,
+                        "findings": f_list
+                    }
+                else:
+                    f_list = []
+                    for r in (getattr(scan_obj, 'results', None) or []):
+                        f_list.append({
+                            "name": r.vulnerability_name,
+                            "severity": r.severity,
+                            "description": r.description,
+                            "remediation": r.remediation
+                        })
+                    fallback_payload = {
+                        "target": scan_obj.target_destination,
+                        "scan_type": "website",
+                        "security_score": scan_obj.security_score,
+                        "overall_risk": scan_obj.risk_level,
+                        "findings": f_list
+                    }
+                ai_data = generate_heuristic_fallback(fallback_payload, reason="not generated during scan")
+
+            if ai_data:
+                from app.services.ai_service import sanitize_ai_data
+                if is_network:
+                    # Force authoritative network scanner metrics
+                    score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
+                    net_score = 100 if not getattr(scan_obj, 'results', None) else score_map.get(scan_obj.risk_level, 70)
+                    n_ports = len(scan_obj.results) if getattr(scan_obj, 'results', None) else 0
+                    ai_data = sanitize_ai_data(
+                        ai_data,
+                        authoritative_score=net_score,
+                        authoritative_risk=scan_obj.risk_level,
+                        scan_type='network',
+                        findings=getattr(scan_obj, 'results', None),
+                        n_ports=n_ports,
+                        is_cached_read=True
+                    )
+                else:
+                    auth_score = scan_obj.security_score if scan_obj.security_score is not None else 100
+                    auth_risk = getattr(scan_obj, 'authoritative_risk', None) or getattr(scan_obj, 'risk_level', None)
+                    ai_data = sanitize_ai_data(
+                        ai_data,
+                        authoritative_score=auth_score,
+                        authoritative_risk=auth_risk,
+                        scan_type='website',
+                        findings=getattr(scan_obj, 'results', None),
+                        is_cached_read=True
+                    )
 
         report_uuid = str(uuid.uuid4())
         
@@ -390,11 +456,14 @@ class PDFGeneratorService:
             story.append(findings_table)
 
             # Network Scan Evidence Block
-            story.append(Spacer(1, 15))
-            story.append(Paragraph("SCAN EVIDENCE", h1_style))
+            ev_flowables = [
+                Spacer(1, 15),
+                Paragraph("SCAN EVIDENCE", h1_style)
+            ]
 
             if not getattr(scan_obj, 'evidence', None) or len(scan_obj.evidence) == 0:
-                story.append(Paragraph("No evidence recorded (scan predates evidence storage)", body_style))
+                ev_flowables.append(Spacer(1, 6))
+                ev_flowables.append(Paragraph("No evidence recorded (scan predates evidence storage)", body_style))
             else:
                 discovery_ev = None
                 for ev in scan_obj.evidence:
@@ -441,8 +510,8 @@ class PDFGeneratorService:
                         hosts_up = "1"
 
                 evidence_summary = f"<b>Scanned Ports:</b> {ports_scanned} | <b>Host State:</b> {host_state} | <b>Hosts Up:</b> {hosts_up}"
-                story.append(Paragraph(evidence_summary, body_style))
-                story.append(Spacer(1, 6))
+                ev_flowables.append(Paragraph(evidence_summary, body_style))
+                ev_flowables.append(Spacer(1, 6))
 
                 ev_headers = [
                     Paragraph("Phase", meta_label_style),
@@ -469,7 +538,9 @@ class PDFGeneratorService:
 
                 ev_table = Table(ev_table_rows, colWidths=[70, 220, 54, 54, 106], repeatRows=1) # Total 504
                 ev_table.setStyle(TableStyle(table_style_list))
-                story.append(ev_table)
+                ev_flowables.append(ev_table)
+
+            story.append(KeepTogether(ev_flowables))
         else:
             # Website scan metadata
             story.append(Paragraph("ORIGINAL SCAN RESULTS", h1_style))
@@ -594,6 +665,11 @@ class PDFGeneratorService:
             story.append(Spacer(1, 15))
             story.append(Paragraph("AI-GENERATED ANALYSIS", h1_style))
             if ai_data:
+                # Fallback mode label
+                if ai_data.get("_fallback") or ai_data.get("fallback_label"):
+                    fallback_mode = ai_data.get("fallback_label") or "Rule-based analysis (live AI unavailable)"
+                    story.append(Paragraph(f"<b>Mode:</b> {PDFGeneratorService.safe_html(fallback_mode)}", body_style))
+
                 # Overall Risk
                 if is_network:
                     ai_risk_display = scan_obj.risk_level.upper()
@@ -604,8 +680,11 @@ class PDFGeneratorService:
                 # Critical Findings
                 story.append(Paragraph("Critical Findings Implications:", meta_label_style))
                 if ai_data.get('critical_findings'):
+                    seen_crit = set()
                     for finding in ai_data.get('critical_findings', []):
-                        story.append(Paragraph(f"&bull; {PDFGeneratorService.safe_html(finding)}", body_style))
+                        if finding not in seen_crit:
+                            seen_crit.add(finding)
+                            story.append(Paragraph(f"&bull; {PDFGeneratorService.safe_html(finding)}", body_style))
                 else:
                     if is_network:
                         story.append(Paragraph("None noted from observed ports.", body_style))

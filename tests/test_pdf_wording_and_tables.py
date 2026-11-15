@@ -14,14 +14,17 @@ from app.services.ai_service import BANNED_NETWORK_PHRASES, filter_network_execu
     "no high",
     "no vulnerabilities",
     "no issues",
-    "clean",
+    "is clean",
+    "clean bill",
+    "clean scan",
     "risk posture",
-    "secure",
-    "safe",
+    "is secure",
+    "remains safe",
+    "vulnerabilities were identified",
 ])
 def test_banned_phrases_post_filter_replaces_with_deterministic_sentence(app, db, test_users, banned_phrase):
     """Part A, Items 1 & 3:
-    Feed an AI response containing each banned phrase and assert:
+    Feed an AI response containing each banned assurance claim and assert:
     - PDF text has NONE of the banned phrases.
     - PDF text HAS the exact deterministic sentence:
       'N open ports were observed. The LOW exposure level is a rule-based rating of the observed ports; this scan did not test for vulnerabilities.'
@@ -56,7 +59,7 @@ def test_banned_phrases_post_filter_replaces_with_deterministic_sentence(app, db
         ai_data = {
             "overall_risk": "Low",
             "security_score": 90,
-            "executive_summary": f"Perimeter check indicates {banned_phrase} detected across target ports.",
+            "executive_summary": f"Perimeter check indicates {banned_phrase} across target ports.",
             "critical_findings": [],
             "recommendations": ["Routine audit"],
             "remediation_priority": []

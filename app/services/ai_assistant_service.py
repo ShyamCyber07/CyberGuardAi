@@ -135,6 +135,32 @@ class AIAssistantService:
         if scan_obj.ai_response:
             try:
                 ai_dict = json.loads(scan_obj.ai_response.response_text)
+                if isinstance(ai_dict, dict):
+                    from app.services.ai_service import sanitize_ai_data
+                    if is_network:
+                        score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
+                        net_score = 100 if not getattr(scan_obj, 'results', None) else score_map.get(scan_obj.risk_level, 70)
+                        n_ports = len(scan_obj.results) if getattr(scan_obj, 'results', None) else 0
+                        ai_dict = sanitize_ai_data(
+                            ai_dict,
+                            authoritative_score=net_score,
+                            authoritative_risk=scan_obj.risk_level,
+                            scan_type='network',
+                            findings=scan_obj.results,
+                            n_ports=n_ports,
+                            is_cached_read=True
+                        )
+                    else:
+                        auth_score = scan_obj.security_score if scan_obj.security_score is not None else 100
+                        auth_risk = getattr(scan_obj, 'authoritative_risk', None) or getattr(scan_obj, 'risk_level', None)
+                        ai_dict = sanitize_ai_data(
+                            ai_dict,
+                            authoritative_score=auth_score,
+                            authoritative_risk=auth_risk,
+                            scan_type='website',
+                            findings=scan_obj.results,
+                            is_cached_read=True
+                        )
                 stored_ai_summary = (
                     f"Overall Risk: {ai_dict.get('overall_risk')}\n"
                     f"Executive Summary: {ai_dict.get('executive_summary')}\n"
@@ -254,7 +280,33 @@ Answer:"""
             if not parts:
                 raise GeminiAPIFailureError("Gemini API response content has no parts.")
             answer_text = parts[0].get('text', '').strip()
-            
+
+            from app.services.ai_service import validate_ai_text
+            if is_network:
+                score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
+                net_score = 100 if not scan_obj.results else score_map.get(scan_obj.risk_level, 70)
+                n_ports = len(scan_obj.results) if getattr(scan_obj, 'results', None) else 0
+                answer_text = validate_ai_text(
+                    answer_text,
+                    authoritative_score=net_score,
+                    authoritative_risk=scan_obj.risk_level,
+                    scan_type='network',
+                    findings=scan_obj.results,
+                    n_ports=n_ports,
+                    is_cached_read=True
+                )
+            else:
+                auth_score = scan_obj.security_score if scan_obj.security_score is not None else 100
+                auth_risk = getattr(scan_obj, 'authoritative_risk', None) or getattr(scan_obj, 'risk_level', None)
+                answer_text = validate_ai_text(
+                    answer_text,
+                    authoritative_score=auth_score,
+                    authoritative_risk=auth_risk,
+                    scan_type='website',
+                    findings=scan_obj.results,
+                    is_cached_read=True
+                )
+
             # Cache answer
             _set_assistant_cache(user_id, scan_uuid, user_question, answer_text)
             return answer_text

@@ -229,6 +229,29 @@ def dashboard():
         if latest_scan.ai_response:
             try:
                 ai_data = json.loads(latest_scan.ai_response.response_text)
+                from app.services.ai_service import sanitize_ai_data
+                if scan_type == 'network':
+                    score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
+                    net_score = 100 if not getattr(latest_scan, 'results', None) else score_map.get(latest_scan.risk_level, 70)
+                    n_ports = len(latest_scan.results) if getattr(latest_scan, 'results', None) else 0
+                    ai_data = sanitize_ai_data(
+                        ai_data,
+                        authoritative_score=net_score,
+                        authoritative_risk=latest_scan.risk_level,
+                        scan_type='network',
+                        findings=latest_scan.results,
+                        n_ports=n_ports
+                    )
+                else:
+                    auth_score = latest_scan.security_score if latest_scan.security_score is not None else 100
+                    auth_risk = getattr(latest_scan, 'authoritative_risk', None) or getattr(latest_scan, 'risk_level', None)
+                    ai_data = sanitize_ai_data(
+                        ai_data,
+                        authoritative_score=auth_score,
+                        authoritative_risk=auth_risk,
+                        scan_type='website',
+                        findings=latest_scan.results
+                    )
                 has_ai = True
             except Exception:
                 pass

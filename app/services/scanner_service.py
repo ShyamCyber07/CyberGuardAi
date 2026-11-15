@@ -755,8 +755,21 @@ class ScannerService:
                 "findings": findings_data
             }
 
-            # Call AI Service (falls back safely on quota exhaustion)
-            ai_data = AIAnalysisService.analyze_scan(scan_results_payload, fallback_on_quota=True, user_id=user_id)
+            # Call AI Service (falls back safely on failure or quota exhaustion)
+            try:
+                ai_data = AIAnalysisService.analyze_scan(
+                    scan_results_payload,
+                    fallback_on_quota=True,
+                    fallback_on_failure=True,
+                    user_id=user_id
+                )
+            except MissingAPIKeyError:
+                raise
+            except Exception as e:
+                from app.services.ai_service import get_short_failure_reason, generate_heuristic_fallback
+                short_r = get_short_failure_reason(e)
+                ai_data = generate_heuristic_fallback(scan_results_payload, reason=short_r)
+
             model_used = ai_data.get("_model_used", AIAnalysisService.DEFAULT_MODEL)
 
             # Persist AI response

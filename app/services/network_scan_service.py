@@ -453,8 +453,21 @@ class MockNetworkScannerService(NetworkScannerServiceInterface):
                 "findings": findings_data
             }
 
-            # Call AI Service (falls back safely on quota exhaustion)
-            ai_data = AIAnalysisService.analyze_scan(scan_results_payload, fallback_on_quota=True, user_id=user_id)
+            # Call AI Service (falls back safely on failure or quota exhaustion)
+            try:
+                ai_data = AIAnalysisService.analyze_scan(
+                    scan_results_payload,
+                    fallback_on_quota=True,
+                    fallback_on_failure=True,
+                    user_id=user_id
+                )
+            except MissingAPIKeyError:
+                raise
+            except Exception as e:
+                from app.services.ai_service import get_short_failure_reason, generate_heuristic_fallback
+                short_r = get_short_failure_reason(e)
+                ai_data = generate_heuristic_fallback(scan_results_payload, reason=short_r)
+
             model_used = ai_data.get("_model_used", AIAnalysisService.DEFAULT_MODEL)
 
             # Persist AI response
@@ -604,7 +617,20 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                 "findings": findings_data
             }
 
-            ai_data = AIAnalysisService.analyze_scan(scan_results_payload, fallback_on_quota=True, user_id=scan.user_id)
+            try:
+                ai_data = AIAnalysisService.analyze_scan(
+                    scan_results_payload,
+                    fallback_on_quota=True,
+                    fallback_on_failure=True,
+                    user_id=scan.user_id
+                )
+            except MissingAPIKeyError:
+                raise
+            except Exception as e:
+                from app.services.ai_service import get_short_failure_reason, generate_heuristic_fallback
+                short_r = get_short_failure_reason(e)
+                ai_data = generate_heuristic_fallback(scan_results_payload, reason=short_r)
+
             # Force authoritative network scanner metrics
             ai_data["overall_risk"] = scan.risk_level
             ai_data["security_score"] = net_score

@@ -86,10 +86,19 @@ def results(uuid):
         try:
             ai_data = json.loads(scan.ai_response.response_text)
             if ai_data and isinstance(ai_data, dict):
+                from app.services.ai_service import sanitize_ai_data
                 score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
                 net_score = 100 if not scan.results else score_map.get(scan.risk_level, 70)
-                ai_data["overall_risk"] = scan.risk_level
-                ai_data["security_score"] = net_score
+                n_ports = len(scan.results) if getattr(scan, 'results', None) else 0
+                ai_data = sanitize_ai_data(
+                    ai_data,
+                    authoritative_score=net_score,
+                    authoritative_risk=scan.risk_level,
+                    scan_type='network',
+                    findings=scan.results,
+                    n_ports=n_ports,
+                    is_cached_read=True
+                )
         except Exception:
             pass
         
@@ -255,10 +264,30 @@ def trigger_ai(uuid):
     }
     
     try:
-        ai_data = AIAnalysisService.analyze_scan(scan_results_payload, fallback_on_quota=True, user_id=current_user.id)
-        # Force authoritative network scanner values
-        ai_data["overall_risk"] = scan.risk_level
-        ai_data["security_score"] = net_score
+        try:
+            ai_data = AIAnalysisService.analyze_scan(
+                scan_results_payload,
+                fallback_on_quota=True,
+                fallback_on_failure=True,
+                user_id=current_user.id
+            )
+        except MissingAPIKeyError:
+            raise
+        except Exception as e:
+            from app.services.ai_service import get_short_failure_reason, generate_heuristic_fallback
+            short_r = get_short_failure_reason(e)
+            ai_data = generate_heuristic_fallback(scan_results_payload, reason=short_r)
+
+        from app.services.ai_service import sanitize_ai_data
+        n_ports = len(scan.results) if getattr(scan, 'results', None) else 0
+        ai_data = sanitize_ai_data(
+            ai_data,
+            authoritative_score=net_score,
+            authoritative_risk=scan.risk_level,
+            scan_type='network',
+            findings=scan.results,
+            n_ports=n_ports
+        )
         model_used = ai_data.get("_model_used", AIAnalysisService.DEFAULT_MODEL)
         
         db_response = AIResponse(
@@ -271,13 +300,10 @@ def trigger_ai(uuid):
         db.session.add(db_response)
         db.session.commit()
         if ai_data.get("_fallback"):
-            flash("AI Analysis: Gemini API quota reached. Generated rule-based fallback analysis.", "warning")
+            fb_msg = ai_data.get("fallback_label") or "Generated rule-based fallback analysis."
+            flash(f"AI Analysis: {fb_msg}", "warning")
         else:
             flash("AI Remediation Report compiled successfully.", "success")
-    except GeminiQuotaExceededError as e:
-        flash(f"AI Analysis unavailable: {e.user_message}", "warning")
-    except AIServiceError as e:
-        flash(f"AI Analysis failed: {str(e)}", "danger")
     except Exception as e:
         current_app.logger.error(f"Unexpected AI analysis error: {e}")
         flash("An unexpected error occurred during AI analysis.", "danger")
