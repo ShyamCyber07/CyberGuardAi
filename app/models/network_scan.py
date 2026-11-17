@@ -58,8 +58,12 @@ class NetworkScanResult(db.Model):
     service_name = db.Column(db.String(50), nullable=False)  # e.g., ssh, http, domain
     service_version = db.Column(db.String(100), nullable=True)  # e.g., OpenSSH 8.2p1
     state = db.Column(db.String(20), nullable=False)  # open, closed, filtered
-    severity = db.Column(db.String(20), nullable=False)  # Low, Medium, High
+    severity = db.Column(db.String(20), nullable=False)  # Low, Medium, High, Informational
     remediation = db.Column(db.Text, nullable=True)
+    rule_id = db.Column(db.String(50), nullable=True)
+    observation = db.Column(db.Text, nullable=True)
+    rationale = db.Column(db.Text, nullable=True)
+    basis = db.Column(db.String(100), nullable=True)
 
     def __repr__(self):
         return f"<NetworkScanResult Port {self.port}/{self.protocol} - Service: {self.service_name}>"

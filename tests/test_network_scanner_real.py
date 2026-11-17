@@ -210,7 +210,7 @@ def test_nmap_service_detection_profile(mock_run, mock_service_avail, mock_route
     assert 22 in ports
     assert ports[22].service_name == 'ssh'
     assert ports[22].service_version == 'OpenSSH 8.2p1'
-    assert ports[22].severity == 'Medium'
+    assert ports[22].severity == 'Low'
 
     assert 3389 in ports
     assert ports[3389].service_name == 'ms-wbt-server'

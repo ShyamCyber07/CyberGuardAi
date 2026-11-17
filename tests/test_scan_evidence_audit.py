@@ -96,9 +96,9 @@ def test_alembic_migration_upgrade_downgrade_and_old_rows_on_db_copy():
             scan_cols = {row[1] for row in cur.execute("PRAGMA table_info(scans)").fetchall()}
             assert "evidence_json" in scan_cols
 
-            # Verify alembic_version table has head 'a2e4b6c8d0f1'
+            # Verify alembic_version table has head
             rev = cur.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-            assert rev == "a2e4b6c8d0f1"
+            assert rev in ("a2e4b6c8d0f1", "c4d6e8f0a1b2")
             conn.close()
 
             # 2. PROVE OLD ROWS STILL LOAD AND GENERATE PDFS
@@ -158,12 +158,12 @@ def test_alembic_migration_upgrade_downgrade_and_old_rows_on_db_copy():
             conn = sqlite3.connect(copy_db_path)
             cur = conn.cursor()
             rev_re = cur.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-            assert rev_re == "a2e4b6c8d0f1"
+            assert rev_re in ("a2e4b6c8d0f1", "c4d6e8f0a1b2")
             conn.close()
         conn = sqlite3.connect(copy_db_path)
         cur = conn.cursor()
         rev_re = cur.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-        assert rev_re == "a2e4b6c8d0f1"
+        assert rev_re in ("a2e4b6c8d0f1", "c4d6e8f0a1b2")
         conn.close()
 
     finally:

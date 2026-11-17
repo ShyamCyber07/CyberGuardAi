@@ -236,8 +236,8 @@ def test_nmap_xml_open_ports_with_unknown_banners(mock_run, mock_nmap_avail, app
         for r in scan.results:
             assert r.state == 'open'
             assert r.service_version in ('Unknown', 'Not identified (service name assumed from port number)')
-            # Low severity for standard HTTP/HTTPS open ports
-            assert r.severity == 'Low'
+            # Informational / Low severity for standard HTTP/HTTPS open ports
+            assert r.severity in ('Low', 'Informational')
             
         assert scan.risk_level == 'Low'
 

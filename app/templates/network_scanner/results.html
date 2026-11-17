@@ -185,6 +185,45 @@
                                     <span class="badge bg-{{ sev_color }}-transparent text-{{ sev_color }} font-monospace text-uppercase fs-9">Exposure Level: {{ result.severity }}</span>
                                 </div>
                                 
+                                {% if result.rule_id %}
+                                <div class="row g-2 mb-2 fs-8">
+                                    <div class="col-md-6">
+                                        <span class="text-white-50 font-monospace">Rule ID: </span>
+                                        <span class="badge bg-secondary-transparent text-cyan font-monospace fs-9">{{ result.rule_id }}</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-white-50 font-monospace">Basis: </span>
+                                        <span class="text-white font-monospace fs-9">{{ result.basis }}</span>
+                                    </div>
+                                    <div class="col-12 mt-1">
+                                        <span class="text-white-50 font-monospace">Observation: </span>
+                                        <span class="text-white fw-semibold">{{ result.observation }}</span>
+                                    </div>
+                                </div>
+
+                                <details class="mb-2">
+                                    <summary class="text-cyan font-monospace fs-9 user-select-none" style="cursor: pointer;">
+                                        <i class="bi bi-info-circle me-1"></i>Rule Details &amp; Rationale
+                                    </summary>
+                                    <div class="p-2.5 mt-1.5 rounded-2 border border-secondary fs-8" style="background: rgba(4, 7, 14, 0.7);">
+                                        <div class="mb-1.5">
+                                            <span class="text-white-50 font-monospace fs-9 text-uppercase">// RATIONALE:</span>
+                                            <p class="text-white mb-0 mt-0.5">{{ result.rationale }}</p>
+                                        </div>
+                                        <div>
+                                            <span class="text-white-50 font-monospace fs-9 text-uppercase">// BASIS:</span>
+                                            <span class="text-cyan font-monospace ms-1">{{ result.basis }}</span>
+                                        </div>
+                                    </div>
+                                </details>
+
+                                {% if result.remediation %}
+                                    <div class="p-2 rounded-2 border border-secondary fs-8" style="background: rgba(4, 7, 14, 0.7);">
+                                        <span class="text-emerald fw-semibold font-monospace fs-9">// REMEDIATION:</span>
+                                        <span class="text-white-50 ms-1">{{ result.remediation }}</span>
+                                    </div>
+                                {% endif %}
+                                {% else %}
                                 <div class="row g-2 mb-2 fs-8">
                                     <div class="col-md-6">
                                         <span class="text-white-50 font-monospace">Service: </span>
@@ -213,6 +252,7 @@
                                         <span class="text-white-50 ms-1">{{ result.remediation }}</span>
                                     </div>
                                 {% endif %}
+                                {% endif %}
                             </div>
                         {% endfor %}
                     </div>
@@ -231,7 +271,7 @@
                             <i class="bi bi-shield-fill-check text-emerald fs-3"></i>
                         </div>
                         <h4 class="text-white fw-bold mb-1">No Open Ports Observed</h4>
-                        <p class="text-white-50 fs-8 mb-0">No open ports observed among scanned ports: {{ '80, 443' if scan.scan_profile == 'Quick Scan' else '22, 80, 443, 3389, 8080' }}. This does not rule out other exposure.</p>
+                        <p class="text-white-50 fs-8 mb-0">No open ports observed among scanned ports: {{ '80, 443' if scan.scan_profile == 'Quick Scan' else ('Common Ports (well-known services)' if scan.scan_profile == 'Common Ports' else '22, 80, 443, 3389, 8080') }}. This does not rule out other exposure.</p>
                     </div>
                     {% endif %}
                 {% endif %}

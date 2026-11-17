@@ -1264,7 +1264,15 @@ Your task is to analyze the security scanner results and generate a structured r
                     if isinstance(finding, dict):
                         prompt += f"Finding #{idx}:\n"
                         prompt += f"- Name: {finding.get('name', 'Unknown')}\n"
-                        prompt += f"- Severity: {finding.get('severity', 'Unknown')}\n"
+                        prompt += f"- Exposure Level: {finding.get('exposure_level') or finding.get('severity', 'Unknown')}\n"
+                        if finding.get('rule_id'):
+                            prompt += f"- Rule ID: {finding.get('rule_id')}\n"
+                        if finding.get('observation'):
+                            prompt += f"- Observation: {finding.get('observation')}\n"
+                        if finding.get('rationale'):
+                            prompt += f"- Rationale: {finding.get('rationale')}\n"
+                        if finding.get('basis'):
+                            prompt += f"- Basis: {finding.get('basis')}\n"
                         prompt += f"- Description: {finding.get('description', 'No description provided')}\n"
                         prompt += f"- Remediation: {finding.get('remediation', 'No remediation provided')}\n\n"
             prompt += f"""
@@ -1273,7 +1281,8 @@ Your task is to analyze the security scanner results and generate a structured r
 2. The allowed claim is: "{n_ports} open ports were observed; this scan did not test for vulnerabilities."
 3. Open ports are observed exposures, NOT confirmed vulnerabilities. Adhere strictly to the authoritative risk level.
 4. The role of the host is unknown. Do not recommend restricting, closing or firewalling ports. Recommend verifying that each observed exposure is intended.
-5. PROSE RESTRICTION: The authoritative values above are provided for context only. You must NOT state, quote, assert, or mention any score, rating, risk level (Critical, High, Medium, Low, None), or severity ranking in free text prose (executive_summary, critical_findings, recommendations, remediation action steps). Scores and risk ratings are authoritative scanner-level outputs displayed exclusively in report headers; your prose must focus only on technical explanations and remediation guidance.
+5. Rule outputs (Rule ID, Observation, Rationale, Basis, Exposure Level) are verified facts. You must receive them as facts and must not change levels.
+6. PROSE RESTRICTION: The authoritative values above are provided for context only. You must NOT state, quote, assert, or mention any score, rating, risk level (Critical, High, Medium, Low, None), or severity ranking in free text prose (executive_summary, critical_findings, recommendations, remediation action steps). Scores and risk ratings are authoritative scanner-level outputs displayed exclusively in report headers; your prose must focus only on technical explanations and remediation guidance.
 """
         else:
             if not findings:

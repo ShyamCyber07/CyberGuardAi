@@ -388,7 +388,17 @@ class PDFGeneratorService:
             story.append(Paragraph("OBSERVED EXPOSURE (OPEN PORTS)", h1_style))
             scanner_mode_str = "REAL NMAP" if getattr(scan_obj, 'scanner_mode', 'MOCK') == 'REAL_NMAP' else "MOCK"
             story.append(Paragraph(f"Target Host IP: {PDFGeneratorService.safe_html(scan_obj.ip_address)} | Profile: {scan_obj.scan_profile} | Mode: {scanner_mode_str}", body_style))
+            story.append(Spacer(1, 4))
             
+            # PDF Methodology Note
+            methodology_note = (
+                "<b>Methodology &amp; Risk Formula:</b> Overall risk is the highest exposure level among triggered rules "
+                "(Critical &gt; High &gt; Medium &gt; Low; Informational exposure and zero open ports count as Low). "
+                "Observed open ports represent exposure surface, rated by deterministic rule criteria."
+            )
+            story.append(Paragraph(methodology_note, body_style))
+            story.append(Spacer(1, 6))
+
             headers = [
                 Paragraph("Port/Proto", meta_label_style),
                 Paragraph("Service (Version)", meta_label_style),
@@ -412,7 +422,13 @@ class PDFGeneratorService:
                 ports_scanned_raw = m_ports.group(1)
                 ports_scanned_display = ports_scanned_raw.replace(',', ', ')
             else:
-                ports_scanned_display = "80, 443" if scan_obj.scan_profile == 'Quick Scan' else "22, 80, 443, 3389, 8080"
+                from app.services.network_rules import COMMON_PORTS_STR
+                if scan_obj.scan_profile == 'Quick Scan':
+                    ports_scanned_display = "80, 443"
+                elif scan_obj.scan_profile == 'Common Ports':
+                    ports_scanned_display = COMMON_PORTS_STR.replace(',', ', ')
+                else:
+                    ports_scanned_display = "22, 80, 443, 3389, 8080"
 
             table_custom_styles = list(table_style_list)
 
@@ -437,21 +453,45 @@ class PDFGeneratorService:
                 for r in scan_obj.results:
                     ver_text = r.service_version if r.service_version and r.service_version != 'Unknown' else 'Unknown'
                     rem_text = r.remediation or "Restrict access to trusted hosts using local firewall configurations."
-                    if scan_obj.scan_profile == 'Quick Scan':
-                        service_display = f"{r.service_name} (assumed from port number; version not probed)"
-                    else:
-                        if '(' in ver_text:
-                            service_display = f"{r.service_name} - {ver_text}"
+                    
+                    if not getattr(r, 'rule_id', None):
+                        # Backward compatibility for old rows without rule columns
+                        if scan_obj.scan_profile in ('Quick Scan', 'Common Ports'):
+                            service_display = f"{r.service_name} (assumed from port number; version not probed)"
                         else:
-                            service_display = f"{r.service_name} ({ver_text})"
-                    table_rows.append([
-                        Paragraph(f"{r.port}/{r.protocol}", body_style),
-                        Paragraph(PDFGeneratorService.safe_html(service_display), body_style),
-                        Paragraph(r.severity.upper(), body_style),
-                        Paragraph(PDFGeneratorService.safe_html(rem_text), body_style)
-                    ])
+                            if '(' in ver_text:
+                                service_display = f"{r.service_name} - {ver_text}"
+                            else:
+                                service_display = f"{r.service_name} ({ver_text})"
+                        table_rows.append([
+                            Paragraph(f"{r.port}/{r.protocol}", body_style),
+                            Paragraph(PDFGeneratorService.safe_html(service_display), body_style),
+                            Paragraph(r.severity.upper(), body_style),
+                            Paragraph(PDFGeneratorService.safe_html(rem_text), body_style)
+                        ])
+                    else:
+                        # Evidence-based rule presentation
+                        obs_text = r.observation or f"Port {r.port}/{r.protocol} open ({r.service_name})."
+                        basis_val = r.basis or "port number only (service not verified)"
+                        basis_line = f"Basis: {basis_val}"
+                        
+                        col2_html = (
+                            f"<b>{PDFGeneratorService.safe_html(r.rule_id)}</b><br/>"
+                            f"{PDFGeneratorService.safe_html(obs_text)}<br/>"
+                            f"<font color='#00e5ff' size='7'>{PDFGeneratorService.safe_html(basis_line)}</font>"
+                        )
+                        col4_html = (
+                            f"<b>Rationale:</b> {PDFGeneratorService.safe_html(r.rationale or '')}<br/>"
+                            f"<b>Remediation:</b> {PDFGeneratorService.safe_html(rem_text)}"
+                        )
+                        table_rows.append([
+                            Paragraph(f"{r.port}/{r.protocol}", body_style),
+                            Paragraph(col2_html, body_style),
+                            Paragraph(r.severity.upper(), body_style),
+                            Paragraph(col4_html, body_style)
+                        ])
 
-            findings_table = Table(table_rows, colWidths=[70, 130, 94, 210], repeatRows=1)
+            findings_table = Table(table_rows, colWidths=[60, 140, 94, 210], repeatRows=1)
             findings_table.setStyle(TableStyle(table_custom_styles))
             story.append(findings_table)
 
@@ -479,7 +519,13 @@ class PDFGeneratorService:
                     if m:
                         ports_scanned = m.group(1)
                 if ports_scanned == "Unknown":
-                    ports_scanned = "80,443" if scan_obj.scan_profile == 'Quick Scan' else "22,80,443,3389,8080"
+                    from app.services.network_rules import COMMON_PORTS_STR
+                    if scan_obj.scan_profile == 'Quick Scan':
+                        ports_scanned = "80,443"
+                    elif scan_obj.scan_profile == 'Common Ports':
+                        ports_scanned = COMMON_PORTS_STR
+                    else:
+                        ports_scanned = "22,80,443,3389,8080"
 
                 host_state = "unknown"
                 hosts_up = "0"

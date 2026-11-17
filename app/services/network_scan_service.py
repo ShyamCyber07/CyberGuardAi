@@ -16,6 +16,7 @@ from typing import List, Optional, Tuple
 from app.models.network_scan import NetworkScan, NetworkScanResult, NetworkScanEvidence
 from app.repositories.network_scan_repository import NetworkScanRepositoryInterface
 from app.services.risk_calculator import RiskCalculatorInterface
+from app.services.network_rules import match_port_rule, calculate_network_risk, COMMON_PORTS_STR, COMMON_PORTS_LIST
 
 logger = logging.getLogger(__name__)
 
@@ -363,57 +364,47 @@ class MockNetworkScannerService(NetworkScannerServiceInterface):
 
         # 2. Add dynamic, mock port findings depending on target profile selections
         findings = []
+        mock_port_configs = []
         if scan_profile == 'Quick Scan':
-            findings.extend([
-                NetworkScanResult(
-                    port=80,
-                    protocol='tcp',
-                    service_name='http',
-                    service_version='nginx 1.18.0',
-                    state='open',
-                    severity='Low',
-                    remediation='Ensure HTTP traffic redirects automatically to secure HTTPS configurations.'
-                ),
-                NetworkScanResult(
-                    port=443,
-                    protocol='tcp',
-                    service_name='https',
-                    service_version='nginx 1.18.0',
-                    state='open',
-                    severity='Low',
-                    remediation='Monitor SSL configurations and TLS handshake setups periodically.'
-                )
-            ])
-        else: # Service Detection Profile
-            findings.extend([
-                NetworkScanResult(
-                    port=22,
-                    protocol='tcp',
-                    service_name='ssh',
-                    service_version='OpenSSH 8.2p1 Ubuntu 4ubuntu0.5',
-                    state='open',
-                    severity='Medium',
-                    remediation='Restrict SSH source IP addresses using firewalls and disable password logins.'
-                ),
-                NetworkScanResult(
-                    port=80,
-                    protocol='tcp',
-                    service_name='http',
-                    service_version='Apache httpd 2.4.41',
-                    state='open',
-                    severity='Low',
-                    remediation='Configure redirects and hide version banners.'
-                ),
-                NetworkScanResult(
-                    port=3389,
-                    protocol='tcp',
-                    service_name='ms-wbt-server',
-                    service_version='Windows Remote Desktop (RDP)',
-                    state='open',
-                    severity='High',
-                    remediation='Disable public facing RDP listeners. Force VPN usage to access Remote Desktop.'
-                )
-            ])
+            mock_port_configs = [
+                (80, 'tcp', 'http', 'nginx 1.18.0'),
+                (443, 'tcp', 'https', 'nginx 1.18.0')
+            ]
+        elif scan_profile == 'Common Ports':
+            mock_port_configs = [
+                (22, 'tcp', 'ssh', 'OpenSSH 8.2p1 Ubuntu 4ubuntu0.5'),
+                (80, 'tcp', 'http', 'nginx 1.18.0'),
+                (443, 'tcp', 'https', 'nginx 1.18.0')
+            ]
+        else:  # Service Detection Profile
+            mock_port_configs = [
+                (22, 'tcp', 'ssh', 'OpenSSH 8.2p1 Ubuntu 4ubuntu0.5'),
+                (80, 'tcp', 'http', 'Apache httpd 2.4.41'),
+                (3389, 'tcp', 'ms-wbt-server', 'Windows Remote Desktop (RDP)')
+            ]
+
+        for port_id, proto, s_name, s_ver in mock_port_configs:
+            is_mock_probed = (scan_profile == 'Service Detection')
+            rule_match = match_port_rule(
+                port=port_id,
+                protocol=proto,
+                service_name=s_name,
+                service_version=s_ver,
+                method="probed" if is_mock_probed else None
+            )
+            findings.append(NetworkScanResult(
+                port=port_id,
+                protocol=proto,
+                service_name=s_name,
+                service_version=s_ver,
+                state='open',
+                severity=rule_match.exposure_level,
+                remediation=rule_match.remediation,
+                rule_id=rule_match.rule_id,
+                observation=rule_match.observation,
+                rationale=rule_match.rationale,
+                basis=rule_match.basis
+            ))
 
         # Link findings to scan parent
         scan.results = findings
@@ -427,7 +418,7 @@ class MockNetworkScannerService(NetworkScannerServiceInterface):
         # 5. Trigger AI Analysis Service automatically
         try:
             import json
-            from app.services.ai_service import AIAnalysisService
+            from app.services.ai_service import AIAnalysisService, MissingAPIKeyError
             from app.models.ai import AIResponse
             from app.extensions import db
 
@@ -437,8 +428,13 @@ class MockNetworkScannerService(NetworkScannerServiceInterface):
                 findings_data.append({
                     "name": f"Open Port {result.port}/{result.protocol} ({result.service_name})",
                     "severity": result.severity,
-                    "description": f"Port {result.port}/{result.protocol} is open and running service {result.service_name} (version: {result.service_version or 'Unknown'}). An open port/service increases the target's attack surface but does not automatically mean a vulnerability exists unless explicitly exploited or misconfigured.",
-                    "remediation": result.remediation or "Restrict access to trusted hosts using local firewall configurations."
+                    "exposure_level": result.severity,
+                    "rule_id": result.rule_id,
+                    "observation": result.observation,
+                    "rationale": result.rationale,
+                    "basis": result.basis,
+                    "description": f"Port {result.port}/{result.protocol} is open and running service {result.service_name} (version: {result.service_version or 'Unknown'}). Basis: {result.basis or 'port number only'}. Rationale: {result.rationale or 'N/A'}.",
+                    "remediation": result.remediation or "If this service is not needed externally, restrict port access using firewall rules."
                 })
 
             # Calculate deterministic score corresponding to risk level
@@ -593,7 +589,7 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
             return
         try:
             import json
-            from app.services.ai_service import AIAnalysisService
+            from app.services.ai_service import AIAnalysisService, MissingAPIKeyError
             from app.models.ai import AIResponse
             from app.extensions import db
 
@@ -602,8 +598,13 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                 findings_data.append({
                     "name": f"Open Port {result.port}/{result.protocol} ({result.service_name})",
                     "severity": result.severity,
-                    "description": f"Port {result.port}/{result.protocol} is open and running service {result.service_name} (version: {result.service_version or 'Unknown'}). An open port/service increases the target's attack surface but does not automatically mean a vulnerability exists unless explicitly exploited or misconfigured.",
-                    "remediation": result.remediation or "Restrict access to trusted hosts using local firewall configurations."
+                    "exposure_level": result.severity,
+                    "rule_id": result.rule_id,
+                    "observation": result.observation,
+                    "rationale": result.rationale,
+                    "basis": result.basis,
+                    "description": f"Port {result.port}/{result.protocol} is open and running service {result.service_name} (version: {result.service_version or 'Unknown'}). Basis: {result.basis or 'port number only'}. Rationale: {result.rationale or 'N/A'}.",
+                    "remediation": result.remediation or "If this service is not needed externally, restrict port access using firewall rules."
                 })
 
             score_map = {'Low': 90, 'Medium': 70, 'High': 40, 'Critical': 20}
@@ -720,22 +721,29 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
         # ==========================================
         # PHASE 1 (discovery, authoritative)
         # ==========================================
-        # Command: nmap -Pn -sT -p <ports> --max-retries 1 --host-timeout 20s -oX - <target> (NO -sV). Subprocess timeout 35s.
         if scan_profile == 'Quick Scan':
             phase1_ports = "80,443"
+            host_timeout = "20s"
+            proc_timeout = 35.0
+        elif scan_profile == 'Common Ports':
+            phase1_ports = COMMON_PORTS_STR
+            host_timeout = "30s"
+            proc_timeout = 45.0
         else:
             phase1_ports = "22,80,443,3389,8080"
+            host_timeout = "20s"
+            proc_timeout = 35.0
 
         cmd_phase1 = [
             "nmap", "-Pn", "-sT", "-p", phase1_ports,
-            "--max-retries", "1", "--host-timeout", "20s",
+            "--max-retries", "1", "--host-timeout", host_timeout,
             "-oX", "-", resolved_ip
         ]
 
         # Execute Phase 1 Nmap
         t0_p1 = time.monotonic()
         try:
-            res_phase1 = subprocess.run(cmd_phase1, capture_output=True, text=True, timeout=35.0)
+            res_phase1 = subprocess.run(cmd_phase1, capture_output=True, text=True, timeout=proc_timeout)
             dur_p1 = time.monotonic() - t0_p1
         except subprocess.TimeoutExpired as exc:
             dur_p1 = time.monotonic() - t0_p1
@@ -755,7 +763,7 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                 exit_code=None,
                 duration_seconds=dur_p1,
                 raw_xml=raw_out,
-                stderr=raw_err or "Network scan timed out after 35 seconds.",
+                stderr=raw_err or f"Network scan timed out after {int(proc_timeout)} seconds.",
                 nmap_version=nmap_ver
             )
             raise ValueError("Network scan timed out after 30 seconds.")
@@ -878,8 +886,8 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                                 method=matched.service_method,
                                 conf=matched.service_conf
                             )
-                            return (port_num, s_name, v_text, ev_dict)
-                    return (port_num, p_port.display_service_name, VERSION_TEXT_TIMED_OUT, ev_dict)
+                            return (port_num, s_name, v_text, ev_dict, matched.service_method)
+                    return (port_num, p_port.display_service_name, VERSION_TEXT_TIMED_OUT, ev_dict, None)
                 except subprocess.TimeoutExpired as texc:
                     dur_p2 = time.monotonic() - t0_p2
                     logger.warning(f"Phase 2 version probe timed out for port {port_num}")
@@ -898,7 +906,7 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                         "stderr": raw_err or f"Phase 2 probe timed out for port {port_num}",
                         "nmap_version": nmap_ver
                     }
-                    return (port_num, p_port.display_service_name, VERSION_TEXT_TIMED_OUT, ev_dict)
+                    return (port_num, p_port.display_service_name, VERSION_TEXT_TIMED_OUT, ev_dict, None)
                 except Exception as ex:
                     dur_p2 = time.monotonic() - t0_p2
                     logger.warning(f"Phase 2 version probe failed for port {port_num}: {ex}")
@@ -911,7 +919,7 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                         "stderr": str(ex),
                         "nmap_version": nmap_ver
                     }
-                    return (port_num, p_port.display_service_name, VERSION_TEXT_TIMED_OUT, ev_dict)
+                    return (port_num, p_port.display_service_name, VERSION_TEXT_TIMED_OUT, ev_dict, None)
 
             max_workers = max(1, min(4, len(open_ports)))
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -919,8 +927,13 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                 for future in concurrent.futures.as_completed(futures):
                     p_num = futures[future]
                     try:
-                        p_id, s_name, v_text, ev_dict = future.result()
-                        port_version_info[p_id] = (s_name, v_text)
+                        res_p = future.result()
+                        p_id = res_p[0]
+                        s_name = res_p[1]
+                        v_text = res_p[2]
+                        ev_dict = res_p[3]
+                        p_method = res_p[4] if len(res_p) > 4 else None
+                        port_version_info[p_id] = (s_name, v_text, p_method)
                         self._record_evidence(
                             scan_id=scan.id,
                             phase=ev_dict["phase"],
@@ -934,7 +947,7 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                     except Exception as exc:
                         p_obj = next((pt for pt in open_ports if pt.port == p_num), None)
                         fallback_label = p_obj.display_service_name if p_obj else "unknown"
-                        port_version_info[p_num] = (fallback_label, VERSION_TEXT_TIMED_OUT)
+                        port_version_info[p_num] = (fallback_label, VERSION_TEXT_TIMED_OUT, None)
                         self._record_evidence(
                             scan_id=scan.id,
                             phase=f"version:{p_num}",
@@ -952,36 +965,27 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
             port_id = p.port
             protocol = p.protocol
             state = p.state
+            method = None
 
             if scan_profile == 'Service Detection':
-                s_name, v_text = port_version_info.get(
-                    port_id, (p.display_service_name, VERSION_TEXT_TIMED_OUT)
+                p_info = port_version_info.get(
+                    port_id, (p.display_service_name, VERSION_TEXT_TIMED_OUT, None)
                 )
-                service_name = s_name
-                service_version = v_text
-            else:  # Quick Scan
+                service_name = p_info[0]
+                service_version = p_info[1]
+                method = p_info[2] if len(p_info) > 2 else None
+            else:  # Quick Scan or Common Ports
                 service_name = p.display_service_name
                 service_version = p.full_version_text
+                method = p.service_method
 
-            # Severity and remediation mapping based on port configuration
-            severity = 'Low'
-            remediation = 'Restrict access to trusted hosts using local firewall configurations.'
-
-            if port_id == 22:
-                severity = 'Medium'
-                remediation = 'Restrict SSH source IP addresses using firewalls and disable password logins.'
-            elif port_id == 80:
-                severity = 'Low'
-                remediation = 'Ensure HTTP traffic redirects automatically to secure HTTPS configurations.'
-            elif port_id == 443:
-                severity = 'Low'
-                remediation = 'Monitor SSL configurations and TLS handshake setups periodically.'
-            elif port_id == 3389:
-                severity = 'High'
-                remediation = 'Disable public facing RDP listeners. Force VPN usage to access Remote Desktop.'
-            elif port_id == 8080:
-                severity = 'Medium'
-                remediation = 'Disable public access to admin ports and use SSL/TLS.'
+            rule_match = match_port_rule(
+                port=port_id,
+                protocol=protocol,
+                service_name=service_name,
+                service_version=service_version,
+                method=method
+            )
 
             findings.append(NetworkScanResult(
                 port=port_id,
@@ -989,8 +993,12 @@ class NmapNetworkScannerService(NetworkScannerServiceInterface):
                 service_name=service_name,
                 service_version=service_version,
                 state=state,
-                severity=severity,
-                remediation=remediation
+                severity=rule_match.exposure_level,
+                remediation=rule_match.remediation,
+                rule_id=rule_match.rule_id,
+                observation=rule_match.observation,
+                rationale=rule_match.rationale,
+                basis=rule_match.basis
             ))
 
         scan.status = 'completed'

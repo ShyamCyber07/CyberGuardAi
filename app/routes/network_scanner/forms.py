@@ -17,6 +17,7 @@ class NetworkScanForm(FlaskForm):
     ])
     scan_profile = SelectField('Scan Profile / Scope', choices=[
         ('Quick Scan', 'Quick Scan (Ports 80, 443)'),
+        ('Common Ports', 'Common Ports (Well-Known Services)'),
         ('Service Detection', 'Comprehensive (Deep Port & Version Audit)')
     ], default='Quick Scan', validators=[DataRequired()])
     scanner_mode = SelectField('Scanner Mode', choices=[
